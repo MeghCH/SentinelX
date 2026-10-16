@@ -1,0 +1,34 @@
+<!--
+  SupportDesk - règles de détection custom
+  Plage réservée : 100100-100199 (cf. CONTRACT.md §8)
+    100100        règle parente
+    100110-100119 authentification
+-->
+<group name="supportdesk,">
+
+  <rule id="100100" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="service.name">^supportdesk$</field>
+    <description>SupportDesk: application event</description>
+  </rule>
+
+  <rule id="100110" level="3">
+    <if_sid>100100</if_sid>
+    <field name="event.category">^authentication$</field>
+    <field name="event.action">^login$</field>
+    <field name="event.outcome">^failure$</field>
+    <description>SupportDesk: failed login for $(user.name) from $(source.ip)</description>
+    <group>authentication_failed,</group>
+  </rule>
+
+  <rule id="100111" level="10" frequency="5" timeframe="60">
+    <if_matched_sid>100110</if_matched_sid>
+    <same_field>source.ip</same_field>
+    <description>SupportDesk: possible brute force on /login from $(source.ip)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>authentication_failures,</group>
+  </rule>
+
+</group>
