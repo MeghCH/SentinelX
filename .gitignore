@@ -1,0 +1,8 @@
+# Certificats Wazuh (générés localement, jamais versionnés)
+detection/wazuh/config/wazuh_indexer_ssl_certs/
+
+# Logs générés pendant les tests
+detection/logs/*.jsonl
+
+# Secrets
+.env
