@@ -40,7 +40,7 @@ Seuil provisoire : **5 échecs en 60 secondes depuis la même `source.ip`**. Val
    ```bash
    docker exec -it single-node-wazuh.manager-1 /var/ossec/bin/wazuh-logtest
    ```
-3. Coller **6 fois de suite**, dans la même session, la ligne de `detection/samples/login_failure.json` (même IP `203.0.113.42`).
+3. Coller **6 fois de suite**, dans la même session, la ligne de `detection/samples/login_failure.jsonl` (même IP `203.0.113.42`).
 4. Relever la règle déclenchée à chaque ligne.
 
 ## Résultat obtenu

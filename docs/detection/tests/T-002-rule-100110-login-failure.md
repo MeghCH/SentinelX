@@ -44,7 +44,7 @@ Vérifier que :
    docker exec single-node-wazuh.manager-1 tail -n 50 /var/ossec/logs/ossec.log | grep -iE "error|critical|warning"
    ```
    Résultat : aucune ligne.
-3. Lancer `wazuh-logtest` et coller une fois la ligne de `detection/samples/login_failure.json` :
+3. Lancer `wazuh-logtest` et coller une fois la ligne de `detection/samples/login_failure.jsonl` :
    ```bash
    docker exec -it single-node-wazuh.manager-1 /var/ossec/bin/wazuh-logtest
    ```
