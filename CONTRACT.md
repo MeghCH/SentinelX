@@ -2,7 +2,7 @@
 
 **Version:** 0.1.0-draft  
 **Status:** Draft for team validation  
-**Application:** SupportDesk  
+**Application:** SupportDesk
 
 ## 1. Scope
 
@@ -12,28 +12,28 @@ This document is a draft to validate before instrumentation begins.
 
 ## 2. Architecture
 
-| Component | Service | Port | Network | Purpose |
-|---|---|---:|---|---|
-| SupportDesk | `supportdesk` | 3000 | `sentinelx` | Business web application |
-| Prometheus | `prometheus` | 9090 | `sentinelx` | Metrics collection |
-| Grafana | `grafana` | 3001 | `sentinelx` | Metrics dashboards |
-| Wazuh manager | `wazuh-manager` | 1514/udp, 1515/tcp | `sentinelx` | Log analysis and alerts |
-| Wazuh indexer | `wazuh-indexer` | 9200 | `sentinelx` | Alert and event storage |
-| Wazuh dashboard | `wazuh-dashboard` | 5601 | `sentinelx` | Detection interface |
+| Component       | Service           |                  Port | Network     | Purpose                  |
+| --------------- | ----------------- | --------------------: | ----------- | ------------------------ |
+| SupportDesk     | `supportdesk`     |                  3000 | `sentinelx` | Business web application |
+| Prometheus      | `prometheus`      |                  9090 | `sentinelx` | Metrics collection       |
+| Grafana         | `grafana`         |                  3001 | `sentinelx` | Metrics dashboards       |
+| Wazuh manager   | `wazuh.manager`   | 55000 (API, internal) | `sentinelx` | Log analysis and alerts  |
+| Wazuh indexer   | `wazuh.indexer`   |       9200 (internal) | `sentinelx` | Alert and event storage  |
+| Wazuh dashboard | `wazuh.dashboard` |           443 -> 5601 | `sentinelx` | Detection interface      |
 
-All components are connected to the `sentinelx` Docker network. The exact Wazuh deployment method must be validated against available host resources before final integration.
+Wazuh 4.14.9 is deployed in single-node mode from `detection/wazuh/docker-compose.wazuh.yml`. Service names keep the official dotted form (`wazuh.manager`, …) because TLS certificates are generated for these hostnames. Ports 1514/1515 (agents) are not used: logs are read from a shared file.
 
 ## 3. Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `NODE_ENV` | `development` | Runtime environment |
-| `PORT` | `3000` | SupportDesk HTTP port |
-| `SESSION_SECRET` | unset in production | Session signing secret |
-| `LOG_LEVEL` | `info` | Application log level |
-| `SENTINELX_LOG_FILE` | `/var/log/sentinelx/app.jsonl` | JSONL log destination |
-| `PROMETHEUS_TARGET` | `supportdesk:3000` | Prometheus scrape target |
-| `PROMETHEUS_SCRAPE_INTERVAL` | `15s` | Scrape interval |
+| Variable                     | Default                        | Description              |
+| ---------------------------- | ------------------------------ | ------------------------ |
+| `NODE_ENV`                   | `development`                  | Runtime environment      |
+| `PORT`                       | `3000`                         | SupportDesk HTTP port    |
+| `SESSION_SECRET`             | unset in production            | Session signing secret   |
+| `LOG_LEVEL`                  | `info`                         | Application log level    |
+| `SENTINELX_LOG_FILE`         | `/var/log/sentinelx/app.jsonl` | JSONL log destination    |
+| `PROMETHEUS_TARGET`          | `supportdesk:3000`             | Prometheus scrape target |
+| `PROMETHEUS_SCRAPE_INTERVAL` | `15s`                          | Scrape interval          |
 
 Secrets must never be committed to the repository.
 
@@ -41,43 +41,49 @@ Secrets must never be committed to the repository.
 
 Each event is encoded as exactly one UTF-8 JSON object followed by a newline. Timestamps use UTC and RFC 3339 format.
 
+Format rules (validated against Wazuh 4.14.9, see `docs/detection/tests/T-004`):
+
+- **No pretty-printing.** One event = one line. Wazuh reads the file line by line: an indented object is split into invalid fragments and silently ignored.
+- **No `url` object.** Wazuh's index template already maps `data.url` as a keyword; an object there is rejected by the indexer and the alert never reaches the dashboard. The request path goes in `http.request.path`.
+- **One type per field.** A field must always have the same type (the indexer rejects documents whose type differs from the first one indexed).
+
 ### Required fields
 
-| Field | Type | Description |
-|---|---|---|
-| `@timestamp` | string | Event timestamp in UTC |
-| `event.dataset` | string | Constant `supportdesk.application` |
-| `event.kind` | string | `event` or `alert` |
-| `event.category` | string | `authentication`, `web`, `database` or `system` |
-| `event.action` | string | Stable action name, for example `login`, `request`, `export` |
-| `event.outcome` | string | `success`, `failure` or `unknown` |
-| `log.level` | string | `info`, `warn` or `error` |
-| `message` | string | Human-readable message without secrets |
-| `service.name` | string | Constant `supportdesk` |
-| `service.version` | string | Application version |
-| `trace.id` | string | Correlation identifier for the request |
+| Field             | Type   | Description                                                  |
+| ----------------- | ------ | ------------------------------------------------------------ |
+| `@timestamp`      | string | Event timestamp in UTC                                       |
+| `event.dataset`   | string | Constant `supportdesk.application`                           |
+| `event.kind`      | string | `event` or `alert`                                           |
+| `event.category`  | string | `authentication`, `web`, `database` or `system`              |
+| `event.action`    | string | Stable action name, for example `login`, `request`, `export` |
+| `event.outcome`   | string | `success`, `failure` or `unknown`                            |
+| `log.level`       | string | `info`, `warn` or `error`                                    |
+| `message`         | string | Human-readable message without secrets                       |
+| `service.name`    | string | Constant `supportdesk`                                       |
+| `service.version` | string | Application version                                          |
+| `trace.id`        | string | Correlation identifier for the request                       |
 
 ### HTTP fields
 
-| Field | Type | Description |
-|---|---|---|
-| `http.request.method` | string | HTTP method |
-| `url.path` | string | Normalized path without query string |
-| `http.response.status_code` | integer | HTTP response status |
-| `http.response.duration_ms` | number | Request duration |
-| `source.ip` | string | Client IP |
-| `user_agent.original` | string | User-agent header |
+| Field                       | Type    | Description                          |
+| --------------------------- | ------- | ------------------------------------ |
+| `http.request.method`       | string  | HTTP method                          |
+| `http.request.path`         | string  | Normalized path without query string |
+| `http.response.status_code` | integer | HTTP response status                 |
+| `http.response.duration_ms` | number  | Request duration                     |
+| `source.ip`                 | string  | Client IP                            |
+| `user_agent.original`       | string  | User-agent header                    |
 
 ### Application fields
 
-| Field | Type | Description |
-|---|---|---|
-| `user.id` | string/integer | Authenticated user identifier when available |
-| `user.name` | string | Username when available |
-| `user.role` | string | Application role when available |
-| `target.id` | string/integer | Ticket or document identifier when applicable |
-| `target.type` | string | `ticket`, `document`, `user` or other resource type |
-| `security.indicator` | string | Optional detection context |
+| Field                | Type   | Description                                         |
+| -------------------- | ------ | --------------------------------------------------- |
+| `user.id`            | string | Authenticated user identifier when available        |
+| `user.name`          | string | Username when available                             |
+| `user.role`          | string | Application role when available                     |
+| `target.id`          | string | Ticket or document identifier when applicable       |
+| `target.type`        | string | `ticket`, `document`, `user` or other resource type |
+| `security.indicator` | string | Optional detection context                          |
 
 Passwords, session secrets, cookies, authorization headers, request bodies and full query strings must never be logged.
 
@@ -189,11 +195,12 @@ The observation period and traffic volume must be recorded with the result.
 - **D-003:** Custom Wazuh rules use a dedicated project ID range.
 - **D-004:** Failed login events are emitted explicitly by the authentication flow.
 - **D-005:** The application remains intentionally vulnerable for controlled detection scenarios; attacks must stay inside the authorized lab environment.
+- **D-006:** Logs are single-line JSON (no pretty-printing) and contain no `url` object, because indented JSON is not decoded by Wazuh and `data.url` conflicts with the Wazuh index template (keyword). Validated in T-004.
+- **D-007:** Wazuh 4.14.9 single-node is used; it runs with 8 GB allocated to Docker.
+- **D-008:** Logs are collected from a shared file: SupportDesk writes `/var/log/sentinelx/app.jsonl` to the `detection/logs` volume, mounted read-only in `wazuh.manager` and read with `<localfile>` in `json` format.
 
 ## 12. Open decisions for validation
 
-- Confirm the final Wazuh deployment mode based on available RAM and CPU.
-- Confirm whether logs are collected from stdout, a shared file volume, or both.
 - Validate the exact list of sensitive endpoints.
 - Validate the three attack scenarios before writing rules.
 - Confirm the traffic duration and false-positive measurement method.
