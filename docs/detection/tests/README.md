@@ -11,6 +11,8 @@
 | [T-007](T-007-rule-100140-path-traversal.md) | Path traversal sur /kb/view (tentative, succès, cas normal)            | 100140, 100141 | ✅                                           | 2026-10-19 |
 | [T-008](T-008-rule-100150-idor.md)           | IDOR sur l'export de tickets (accès isolé, énumération, cas légitimes) | 100150, 100151 | ✅                                           | 2026-10-20 |
 | [T-009](T-009-rule-100120-sql-injection.md)  | Injection SQL (URL, corps, recherche normale, apostrophe)              | 100120, 100121 | ✅                                           | 2026-10-20 |
+| [T-010](T-010-rule-100130-ssrf.md)           | SSRF sur /admin/fetch (métadonnées, localhost, fetch externe)          | 100130         | ✅                                           | 2026-10-20 |
+| [T-011](T-011-rule-100160-scan.md)           | Scan d'endpoints (404 isolée, rafale de 4xx)                           | 100160, 100161 | ✅                                           | 2026-10-20 |
 
 Nous pouvons rejouer les tests avec ce script -> run.sh.
 

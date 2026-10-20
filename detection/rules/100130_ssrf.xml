@@ -1,0 +1,14 @@
+<group name="supportdesk,">
+
+  <rule id="100130" level="10">
+    <if_sid>100100</if_sid>
+    <field name="http.request.path">^/admin/fetch$</field>
+    <field name="http.request.body" type="pcre2">(?i)url=[^&]*(127\.0\.0\.1|localhost|0\.0\.0\.0|169\.254\.169\.254|\[::1\]|file://|gopher://|dict://|169\.254\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|metadata)</field>
+    <description>SupportDesk: possible SSRF on /admin/fetch to internal target from $(source.ip)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>web_attack,ssrf,</group>
+  </rule>
+
+</group>
