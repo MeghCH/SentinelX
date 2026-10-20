@@ -1,0 +1,26 @@
+<!--
+  SupportDesk - IDOR sur l'export de tickets
+  Plage 100150-100159 (cf. CONTRACT.md §4.3, §8)
+  Endpoint : GET /tickets/:id/export
+-->
+<group name="supportdesk,">
+
+  <rule id="100150" level="8">
+    <if_sid>100100</if_sid>
+    <field name="event.action">^export$</field>
+    <field name="target.type">^ticket$</field>
+    <field name="target.owned_by_user">^false$</field>
+    <field name="user.role" negate="yes">^admin$</field>
+    <description>SupportDesk: user $(user.name) exported ticket $(target.id) owned by another user ($(target.owner_id))</description>
+    <group>web_attack,idor,</group>
+  </rule>
+
+  <rule id="100151" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>100150</if_matched_sid>
+    <same_field>user.id</same_field>
+    <different_field>target.id</different_field>
+    <description>SupportDesk: possible ticket enumeration (IDOR) by user $(user.name) from $(source.ip)</description>
+    <group>web_attack,idor,</group>
+  </rule>
+
+</group>
