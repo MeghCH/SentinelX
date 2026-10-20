@@ -1,0 +1,28 @@
+<!--
+  SupportDesk - injection SQL
+  Plage 100120-100129 (cf. CONTRACT.md §8)
+  Endpoints : GET /tickets (query), POST /tickets/search (body)
+-->
+<group name="supportdesk,">
+
+  <rule id="100120" level="10">
+    <if_sid>100100</if_sid>
+    <field name="http.request.query" type="pcre2">(?i)(union\s+select|or\s+1\s*=\s*1|'\s*or\s*'|;\s*drop\s+|sleep\s*\(|benchmark\s*\(|information_schema|--\s|/\*)</field>
+    <description>SupportDesk: SQL injection pattern in query string from $(source.ip)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>web_attack,sql_injection,</group>
+  </rule>
+
+  <rule id="100121" level="10">
+    <if_sid>100100</if_sid>
+    <field name="http.request.body" type="pcre2">(?i)(union\s+select|or\s+1\s*=\s*1|'\s*or\s*'|;\s*drop\s+|sleep\s*\(|benchmark\s*\(|information_schema|--\s|/\*)</field>
+    <description>SupportDesk: SQL injection pattern in request body from $(source.ip)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>web_attack,sql_injection,</group>
+  </rule>
+
+</group>
