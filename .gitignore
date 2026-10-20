@@ -5,4 +5,4 @@ detection/wazuh/config/wazuh_indexer_ssl_certs/
 detection/logs/*.jsonl
 
 # Secrets
-.env
+.envdetection/samples/training/

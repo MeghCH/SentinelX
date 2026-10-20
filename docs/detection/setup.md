@@ -241,6 +241,8 @@ docker logs --since 5m sentinelx-wazuh.manager-1 2>&1 | grep -iE "cannot index|m
 | Erreur au démarrage du manager mentionnant un `if_sid` inconnu           | un fichier de règles est chargé avant celui de la règle parente                                                   | vérifier les préfixes numériques des fichiers (§4)                                          |
 | Règle signalée en double au démarrage                                    | même identifiant dans deux fichiers (ex. ancien `local_rules.xml` resté en place)                                 | supprimer le doublon                                                                        |
 
+- modifier wazuh_manager.conf exige de recréer le conteneur (up -d --force-recreate), pas un simple docker restart. |
+
 ---
 
 ## 7. Sécurité
