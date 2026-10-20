@@ -1,6 +1,6 @@
 # Sentinel X - Technical Contract
 
-**Version:** 0.1.0-draft  
+**Version:** 0.3.0-draft  
 **Status:** Draft for team validation  
 **Application:** SupportDesk
 
@@ -46,6 +46,7 @@ Format rules (validated against Wazuh 4.14.9, see `docs/detection/tests/T-004`):
 - **No pretty-printing.** One event = one line. Wazuh reads the file line by line: an indented object is split into invalid fragments and silently ignored.
 - **No `url` object.** Wazuh's index template already maps `data.url` as a keyword; an object there is rejected by the indexer and the alert never reaches the dashboard. The request path goes in `http.request.path`.
 - **One type per field.** A field must always have the same type (the indexer rejects documents whose type differs from the first one indexed).
+- **Omit unknown values.** A field with no value is omitted rather than set to `null` or `""`.
 
 ### Required fields
 
@@ -65,27 +66,57 @@ Format rules (validated against Wazuh 4.14.9, see `docs/detection/tests/T-004`):
 
 ### HTTP fields
 
-| Field                       | Type    | Description                          |
-| --------------------------- | ------- | ------------------------------------ |
-| `http.request.method`       | string  | HTTP method                          |
-| `http.request.path`         | string  | Normalized path without query string |
-| `http.response.status_code` | integer | HTTP response status                 |
-| `http.response.duration_ms` | number  | Request duration                     |
-| `source.ip`                 | string  | Client IP                            |
-| `user_agent.original`       | string  | User-agent header                    |
+| Field                       | Type    | Description                                                                                      |
+| --------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `http.request.method`       | string  | HTTP method                                                                                      |
+| `http.request.path`         | string  | Request path as received, without query string (route normalization applies to metrics only, §6) |
+| `http.request.query`        | string  | Sanitized query string, see §4.1                                                                 |
+| `http.request.body`         | string  | Sanitized form body, see §4.1                                                                    |
+| `http.response.status_code` | integer | HTTP response status                                                                             |
+| `http.response.duration_ms` | number  | Request duration                                                                                 |
+| `source.ip`                 | string  | Client IP, see §4.2                                                                              |
+| `user_agent.original`       | string  | User-agent header                                                                                |
 
 ### Application fields
 
-| Field                | Type   | Description                                         |
-| -------------------- | ------ | --------------------------------------------------- |
-| `user.id`            | string | Authenticated user identifier when available        |
-| `user.name`          | string | Username when available                             |
-| `user.role`          | string | Application role when available                     |
-| `target.id`          | string | Ticket or document identifier when applicable       |
-| `target.type`        | string | `ticket`, `document`, `user` or other resource type |
-| `security.indicator` | string | Optional detection context                          |
+| Field                  | Type   | Description                                                                                           |
+| ---------------------- | ------ | ----------------------------------------------------------------------------------------------------- |
+| `user.id`              | string | Authenticated user identifier when available                                                          |
+| `user.name`            | string | Username when available; attempted email for authentication events                                    |
+| `user.role`            | string | Application role when available                                                                       |
+| `target.id`            | string | Ticket or document identifier when applicable                                                         |
+| `target.type`          | string | `ticket`, `document`, `user` or other resource type                                                   |
+| `target.owner_id`      | string | Identifier of the user who owns the target resource (`created_by` for tickets), see §4.3              |
+| `target.owned_by_user` | string | `"true"` if `user.id` equals `target.owner_id`, otherwise `"false"`; set on ticket accesses, see §4.3 |
+| `security.indicator`   | string | Optional detection context                                                                            |
 
-Passwords, session secrets, cookies, authorization headers, request bodies and full query strings must never be logged.
+### 4.1 Request input fields
+
+Attack payloads (SQL injection, path traversal, SSRF, stored XSS) travel in query parameters and form fields. They are logged, after sanitization, in two string fields:
+
+- `http.request.query`: query string, URL-decoded once, as `key=value&key=value`.
+- `http.request.body`: form body, URL-decoded once, as `key=value&key=value`.
+
+Sanitization rules, applied before writing the log:
+
+1. The value of any key matching (case-insensitive) `password`, `pass`, `pwd`, `token`, `secret`, `session`, `cookie` or `authorization` is replaced with `***`.
+2. Each field is truncated to 512 characters; a truncated value ends with `[truncated]`.
+3. Fields are omitted when the request has no query string or no body.
+4. Cookies and the `Authorization` header are never logged.
+
+Values are logged as received (after the single URL-decode): they must not be escaped, filtered or normalized, otherwise detection rules cannot see the payload.
+
+### 4.2 Client IP (`source.ip`)
+
+SupportDesk sets `app.set('trust proxy', true)`: `source.ip` is `req.ip`, i.e. the left-most address of `X-Forwarded-For` when present, otherwise the socket address.
+
+Known limitation: `X-Forwarded-For` is client-controlled and can be rotated to evade per-IP rules. Kept on purpose in the lab and documented as an evasion scenario.
+
+### 4.3 Resource ownership (`target.owner_id`)
+
+`GET /tickets/:id/export` performs no ownership check. Detecting an IDOR requires the requester (`user.id`) and the owner (`target.owner_id`) in the same event. The export route sets `target.type = ticket`, `target.id`, `target.owner_id` from the ticket's `created_by`, and `target.owned_by_user`. The same applies to `GET /tickets/:id`.
+
+`target.owned_by_user` is computed by the application because Wazuh rules cannot compare two fields of the same event. It is a string (`"true"` / `"false"`), not a boolean, to respect the one-type-per-field rule.
 
 ## 5. Events to emit
 
@@ -102,7 +133,7 @@ At minimum, the application must emit events for:
 - Suspicious input or rejected request
 - Internal application errors
 
-Failed authentication must be identified explicitly. It cannot be inferred only from the final HTTP status because SupportDesk redirects both successful and failed login flows.
+Failed authentication must be identified explicitly. It cannot be inferred only from the final HTTP status because SupportDesk redirects both successful and failed login flows with HTTP 302. A failed login is a `POST /login` whose `Location` response header is `/login?error=1`; a successful one redirects to `/dashboard`.
 
 ## 6. Prometheus metrics contract
 
@@ -136,6 +167,8 @@ The first functional test suite must cover at least:
 - `POST /tickets/search`
 - `GET /tickets/:id`
 - `GET /tickets/:id/export`
+- `POST /tickets/:id/comment`
+- `GET /profile`, `POST /profile`
 - `GET /admin`
 - `POST /admin/fetch`
 - `GET /kb`
@@ -150,10 +183,15 @@ Wazuh must read the SupportDesk JSONL log and decode the documented fields. Cust
 
 Initial custom detections must target distinct patterns:
 
-1. Repeated failed logins from the same source.
-2. Suspicious access to the administrative fetch endpoint, including possible SSRF behavior.
-3. Abnormal access to ticket exports or knowledge-base paths, including possible IDOR or traversal behavior.
-4. Repeated 4xx responses suggesting endpoint scanning.
+| Range           | Pattern                                     | Endpoint(s)                            | Fields used                                    | MITRE |
+| --------------- | ------------------------------------------- | -------------------------------------- | ---------------------------------------------- | ----- |
+| `100100`        | Parent rule (any SupportDesk event)         | all                                    | `service.name`                                 | —     |
+| `100110-100119` | Repeated failed logins from the same source | `POST /login`                          | `event.*`, `source.ip`                         | T1110 |
+| `100120-100129` | SQL injection patterns                      | `GET /tickets`, `POST /tickets/search` | `http.request.query`, `http.request.body`      | T1190 |
+| `100130-100139` | SSRF via the administrative fetch           | `POST /admin/fetch`                    | `http.request.body`                            | T1190 |
+| `100140-100149` | Path traversal on knowledge-base documents  | `GET /kb/view`                         | `http.request.query`, `target.id`              | T1190 |
+| `100150-100159` | IDOR on ticket export                       | `GET /tickets/:id/export`              | `target.owned_by_user`, `user.id`, `target.id` | —     |
+| `100160-100169` | Endpoint scanning (repeated 4xx)            | all                                    | `http.response.status_code`, `source.ip`       | T1595 |
 
 Each rule must specify its severity, matching fields, threshold, rationale, fixture or attack command, and expected alert.
 
@@ -161,8 +199,9 @@ Each rule must specify its severity, matching fields, threshold, rationale, fixt
 
 Before V1 is accepted:
 
-- The contract has been reviewed by both team members.
+- The contract has been reviewed by all three team members.
 - JSON logs are valid and one event occupies one line.
+- New log fields are validated end to end in Wazuh (decoded and indexed) before implementation.
 - `/metrics` returns valid Prometheus exposition.
 - Functional tests cover the critical endpoints and report their coverage rate.
 - Wazuh receives at least one SupportDesk event.
@@ -198,6 +237,11 @@ The observation period and traffic volume must be recorded with the result.
 - **D-006:** Logs are single-line JSON (no pretty-printing) and contain no `url` object, because indented JSON is not decoded by Wazuh and `data.url` conflicts with the Wazuh index template (keyword). Validated in T-004.
 - **D-007:** Wazuh 4.14.9 single-node is used; it runs with 8 GB allocated to Docker.
 - **D-008:** Logs are collected from a shared file: SupportDesk writes `/var/log/sentinelx/app.jsonl` to the `detection/logs` volume, mounted read-only in `wazuh.manager` and read with `<localfile>` in `json` format.
+- **D-009:** Query strings and form bodies are logged in `http.request.query` and `http.request.body` after sanitization (§4.1). Without them, SQL injection, SSRF, path traversal and stored XSS are undetectable.
+- **D-010:** `source.ip` comes from `req.ip` with `trust proxy` enabled (§4.2). The spoofable `X-Forwarded-For` is accepted in the lab and documented as an evasion vector.
+- **D-011:** Ticket accesses carry `target.owner_id` so that IDOR is detectable from a single event (§4.3).
+- **D-012:** Custom rule IDs are split into sub-ranges per attack pattern (§8).
+- **D-013:** The application computes `target.owned_by_user` because Wazuh rules cannot compare two fields of the same event (identified while preparing T-006). IDOR is also detectable behaviorally (one user exporting many distinct tickets).
 
 ## 12. Open decisions for validation
 
@@ -205,3 +249,4 @@ The observation period and traffic volume must be recorded with the result.
 - Validate the three attack scenarios before writing rules.
 - Confirm the traffic duration and false-positive measurement method.
 - Confirm retention and handling rules for IP addresses and user agents.
+- Confirm indexing of `http.request.query`, `target.owner_id` and `target.owned_by_user` once the matching rules exist (T-006 follow-up).
