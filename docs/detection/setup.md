@@ -52,7 +52,10 @@ Ce réglage est perdu à chaque redémarrage de Docker Desktop.
 ```
 detection/
 ├── logs/                      # volume lu par Wazuh (app.jsonl, non versionné)
-├── rules/local_rules.xml      # règles custom, montées dans le manager
+├── rules/                     # règles custom (un fichier par type d'attaque), montées dans le manager
+│   ├── 100100_supportdesk_base.xml
+│   ├── 100110_bruteforce.xml
+│   └── 100140_path_traversal.xml
 ├── samples/                   # échantillons de logs conformes au contrat
 ├── tests/run.sh               # rejeu automatique des tests
 └── wazuh/
@@ -69,7 +72,7 @@ detection/
 Modifications par rapport aux fichiers officiels :
 
 - `docker-compose.wazuh.yml` : `name: sentinelx` (noms de conteneurs prévisibles) et deux montages dans `wazuh.manager` :
-  - `../rules/local_rules.xml` -> `/var/ossec/etc/rules/local_rules.xml`
+  - `../rules` -> `/var/ossec/etc/rules` (dossier entier : tous les `.xml` sont chargés)
   - `../logs` -> `/var/log/sentinelx` (lecture seule)
 - `wazuh_manager.conf` : lecture de `/var/log/sentinelx/app.jsonl` au format `json`.
 
@@ -160,7 +163,7 @@ Règle impérative : **un objet JSON par ligne**, jamais indenté (voir `CONTRAC
 
 ### Modifier une règle
 
-1. Éditer `detection/rules/local_rules.xml`.
+1. Éditer ou créer le fichier concerné dans `detection/rules/`.
 2. Redémarrer le manager pour charger la nouvelle version :
    ```bash
    docker restart sentinelx-wazuh.manager-1
@@ -176,6 +179,16 @@ Règle impérative : **un objet JSON par ligne**, jamais indenté (voir `CONTRAC
 5. Relancer `./detection/tests/run.sh` pour vérifier que rien n'est cassé.
 
 Plage d'identifiants réservée : `100100`–`100199` (voir `CONTRACT.md` §8).
+
+### Organisation des fichiers de règles
+
+Un fichier par type d'attaque, préfixé par le début de sa plage d'identifiants (`100140_path_traversal.xml` pour 100140-100149).
+
+Wazuh charge les fichiers **par ordre alphabétique**. Toutes les règles dépendent de la règle parente 100100 : `100100_supportdesk_base.xml` doit donc rester le premier fichier. Le préfixe numérique garantit cet ordre.
+
+Chaque fichier contient son propre bloc `<group name="supportdesk,">…</group>`. Un identifiant ne doit apparaître que dans un seul fichier.
+
+Un nouveau fichier ajouté dans `detection/rules/` est visible immédiatement dans le conteneur : un `docker restart sentinelx-wazuh.manager-1` suffit pour le charger. Seule une modification du `docker-compose.wazuh.yml` nécessite de relancer `docker compose … up -d`.
 
 ### Arrêter / réinitialiser
 
@@ -225,6 +238,8 @@ docker logs --since 5m sentinelx-wazuh.manager-1 2>&1 | grep -iE "cannot index|m
 | `alerts.json` vide le lendemain                                          | Wazuh archive ce fichier chaque nuit                                                                              | normal : l'historique reste dans le dashboard                                               |
 | La règle brute force 100111 ne se déclenche pas pour une rafale d'échecs | corrélation peu fiable quand les événements arrivent groupés                                                      | limite connue, voir T-005                                                                   |
 | Port 443 déjà utilisé                                                    | autre service local                                                                                               | modifier `443:5601` dans le compose (ex. `8443:5601`)                                       |
+| Erreur au démarrage du manager mentionnant un `if_sid` inconnu           | un fichier de règles est chargé avant celui de la règle parente                                                   | vérifier les préfixes numériques des fichiers (§4)                                          |
+| Règle signalée en double au démarrage                                    | même identifiant dans deux fichiers (ex. ancien `local_rules.xml` resté en place)                                 | supprimer le doublon                                                                        |
 
 ---
 

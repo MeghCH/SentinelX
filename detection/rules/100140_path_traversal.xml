@@ -1,0 +1,29 @@
+<!--
+  SupportDesk - path traversal sur la base de connaissances
+  Plage 100140-100149 (cf. CONTRACT.md §8)
+  Endpoint : GET /kb/view?doc=...
+-->
+<group name="supportdesk,">
+
+  <rule id="100140" level="7">
+    <if_sid>100100</if_sid>
+    <field name="http.request.path">^/kb/view$</field>
+    <field name="http.request.query" type="pcre2">(?i)(\.\./|\.\.\\|%2e%2e)</field>
+    <description>SupportDesk: path traversal attempt on /kb/view from $(source.ip) ($(target.id))</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>web_attack,path_traversal,</group>
+  </rule>
+
+  <rule id="100141" level="12">
+    <if_sid>100140</if_sid>
+    <field name="http.response.status_code">^200$</field>
+    <description>SupportDesk: successful path traversal on /kb/view from $(source.ip) ($(target.id))</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>web_attack,path_traversal,</group>
+  </rule>
+
+</group>

@@ -46,7 +46,7 @@ services:
       - ./config/wazuh_indexer_ssl_certs/wazuh.manager-key.pem:/etc/ssl/filebeat.key
       - ./config/wazuh_cluster/wazuh_manager.conf:/wazuh-config-mount/etc/ossec.conf
       # Sentinel X : règles custom versionnées dans le repo
-      - ../rules/local_rules.xml:/var/ossec/etc/rules/local_rules.xml
+      - ../rules:/var/ossec/etc/rules
       # Sentinel X : logs JSONL de SupportDesk (lecture seule)
       - ../logs:/var/log/sentinelx:ro
 

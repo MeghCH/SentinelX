@@ -1,0 +1,15 @@
+<!--
+  SupportDesk - règles de détection custom
+  Plage réservée : 100100-100199 (cf. CONTRACT.md §8)
+    100100        règle parente
+    100110-100119 authentification
+-->
+
+<group name="supportdesk,">
+
+  <rule id="100100" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="service.name">^supportdesk$</field>
+    <description>SupportDesk: application event</description>
+  </rule>
+</group>
