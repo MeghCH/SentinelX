@@ -5,4 +5,10 @@ detection/wazuh/config/wazuh_indexer_ssl_certs/
 detection/logs/*.jsonl
 
 # Secrets
-.envdetection/samples/training/
+.env
+# Training logs fetched locally, never committed
+detection/samples/training/
+
+# SupportDesk runtime artefacts
+supportdesk/node_modules/
+supportdesk/*.db

@@ -1,0 +1,29 @@
+# SupportDesk -- intentionally vulnerable application (pedagogical use only)
+#
+# The JSONL log file is shared with Wazuh (D-008): the app writes
+# /var/log/sentinelx/app.jsonl into the repo detection/logs/ bind volume,
+# which wazuh.manager also mounts read-only. Keep both compose files in the
+# same `sentinelx` project (or merge them into the final consolidated compose).
+#
+# WARNING: the full monitoring stack (Wazuh + Prometheus + Grafana) requires
+# 8-12 GB of available RAM. Wazuh indexer (OpenSearch) alone needs ~4 GB heap.
+# Check your machine resources before starting the complete stack.
+# Wazuh can take 5-15 minutes to become fully operational after first start.
+
+name: sentinelx
+
+services:
+  supportdesk:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - SESSION_SECRET=dev-secret-change-in-prod
+      - PORT=3000
+      - LOG_LEVEL=info
+      - SENTINELX_LOG_FILE=/var/log/sentinelx/app.jsonl
+    volumes:
+      # Shared with detection/wazuh/docker-compose.wazuh.yml (../logs = detection/logs)
+      - ../detection/logs:/var/log/sentinelx
+    restart: unless-stopped
