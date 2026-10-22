@@ -12,3 +12,4 @@ detection/samples/training/
 # SupportDesk runtime artefacts
 supportdesk/node_modules/
 supportdesk/*.db
+detection/logs/training.log
