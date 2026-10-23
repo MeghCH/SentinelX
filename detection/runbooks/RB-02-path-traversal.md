@@ -44,6 +44,20 @@ docker exec sentinelx-wazuh.manager-1 grep -c '"id":"100140"' /var/ossec/logs/al
 docker exec sentinelx-wazuh.manager-1 grep -c '"id":"100141"' /var/ossec/logs/alerts/alerts.json
 ```
 
+### Variante via l'interface web (pour la démo)
+
+L'attaque est reproductible directement dans le navigateur, une fois connecté
+(`jdupont` / `User_123`) :
+
+1. Aller sur `http://localhost:3000/tickets` pour obtenir une session active.
+2. Saisir dans la barre d'adresse :
+   `http://localhost:3000/kb/view?doc=..%2f..%2f..%2fetc%2fpasswd`
+   (les `/` sont encodés en `%2f` pour empêcher le navigateur de simplifier les `../`).
+3. La page affiche le contenu de `/etc/passwd` dans l'interface SupportDesk (voir capture §3).
+
+Cette variante est la plus parlante pour une démonstration : le fichier système
+volé s'affiche directement dans l'application.
+
 ## 3. Observations (exécution du 2026-10-23)
 
 ### Résultats par payload
