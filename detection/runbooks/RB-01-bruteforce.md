@@ -99,7 +99,7 @@ Dashboard : Threat Hunting -> Events -> `rule.id:100111`.
 - Groupes : `supportdesk, authentication_failures`
 - MITRE : T1110.001 (Credential Access / Password Guessing)
 
-![Alerte brute force hydra](../img/RB-01-100111.png)
+![Alerte brute force hydra](../../docs/detection/img/RB-01-100111.png)
 
 ---
 
