@@ -12,7 +12,8 @@
 // Anti-false-positive design (justification table in docs/app/traffic-script.md):
 //   - 0 client errors (4xx) generated  -> rule 100160/161 cannot fire,
 //   - 0 failed logins (default)        -> 100110/100111 cannot fire (use
-//     --typos N to validate the threshold with occasional user typos),
+//     --typos N to validate the threshold with occasional user typos,
+//     spaced >= 90 s apart so 100111 still cannot fire),
 //   - searches avoid SQL patterns     -> 100120/100121 cannot fire,
 //   - admin/fetch only to a public URL -> 100130 cannot fire,
 //   - KB views only legitimate docs    -> 100140 cannot fire,
@@ -39,6 +40,7 @@ function parseArgs (argv) {
     typos: 0, // number of deliberate failed logins (0 = clean baseline)
     fetchUrl: 'https://status.example.com/health', // public URL, cf. sample fetch_normal.jsonl
     out: null, // report file; defaults to traffic-YYYYTS.json
+    xff: true, // one X-Forwarded-For address per identity (D-010); --sameIp disables it
     verbose: false
   }
   for (let i = 2; i < argv.length; i++) {
@@ -46,6 +48,7 @@ function parseArgs (argv) {
     const next = argv[i + 1]
     if (key === 'verbose') opts.verbose = true
     else if (key === 'quiet') opts.verbose = false
+    else if (key === 'sameIp') opts.xff = false
     else if (['base', 'users', 'admin', 'fetchUrl', 'out'].includes(key)) { opts[key] = next; i++ }
     else if (['duration', 'typos'].includes(key)) { opts[key] = parseInt(next, 10); i++ }
     else { console.error(`Unknown option --${key}`); process.exit(2) }
@@ -77,6 +80,12 @@ const USERS = {
 const EMAILS = u => `${u}@supportdesk.local`
 const PASSWORDS = { admin: 'Admin_123', helpdesk: 'Help_123' }
 const passwordOf = u => PASSWORDS[u] || 'User_123'
+
+// One stable LAN address per identity, sent as X-Forwarded-For (the app runs
+// with `trust proxy`, D-010) so the per-IP rules (100111, 100161) see distinct
+// workstations instead of the single host running this script.
+const IPS = Object.fromEntries(Object.keys(USERS).map((u, i) => [u, `10.20.0.${11 + i}`]))
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 
 // Innocent search vocabulary (no SQL pattern -- see rule 100120 pcre2)
 const SEARCHES = [
@@ -145,6 +154,21 @@ const rand = n => Math.floor(Math.random() * n)
 const thinkTime = (min, max) => sleep(min + rand(max - min))
 const pick = arr => arr[rand(arr.length)]
 
+// --typos scheduling, shared by all workers. The slot is reserved
+// synchronously, BEFORE any await: otherwise every worker starting at the same
+// instant sees 0 typos and fails its login together (-> 100111 brute force).
+// A global 90 s spacing keeps at most 1 failure in any 60 s window.
+const TYPO_SPACING_MS = 90 * 1000
+let typosReserved = 0
+let nextTypoAt = 0
+function reserveTypo () {
+  const now = Date.now()
+  if (typosReserved >= OPTS.typos || now < nextTypoAt || Math.random() >= 0.5) return false
+  typosReserved++
+  nextTypoAt = now + TYPO_SPACING_MS
+  return true
+}
+
 function record (entry) {
   stats.requests++
   const key = `${entry.method} ${entry.path.split('?')[0]}`
@@ -156,7 +180,8 @@ function record (entry) {
 }
 
 async function call ({ user, cookie, method = 'GET', url, body = null, manual = false }) {
-  const headers = {}
+  const headers = { 'user-agent': USER_AGENT }
+  if (OPTS.xff && IPS[user]) headers['x-forwarded-for'] = IPS[user]
   if (cookie) headers.cookie = cookie
   if (body) headers['content-type'] = 'application/x-www-form-urlencoded'
   const started = Date.now()
@@ -197,8 +222,7 @@ async function runUser (user, endAt) {
     if (!cookie || now > sessionDeadline) {
       // (re)open a session (with an occasional typo if --typos is used)
       const jar = { cookie: null }
-      const failLogin = OPTS.typos > 0 && Math.random() < 0.5 && stats.failedLogins.length < OPTS.typos
-      if (failLogin) {
+      if (reserveTypo()) {
         await login({ user, password: 'Typo_' + rand(9999), cookieJar: jar })
         stats.failedLogins.push({ user, at: new Date().toISOString() })
         await sleep(1500)
@@ -280,7 +304,7 @@ async function main () {
   }
   stats.started = new Date().toISOString()
   const endAt = Date.now() + OPTS.duration * 1000
-  console.log(`Traffic: ${OPTS.duration}s, ${OPTS.userList.length} users + 1 admin, base=${OPTS.base}, typos=${OPTS.typos}`)
+  console.log(`Traffic: ${OPTS.duration}s, ${OPTS.userList.length} users + 1 admin, base=${OPTS.base}, typos=${OPTS.typos}, source IPs=${OPTS.xff ? 'one per identity (X-Forwarded-For)' : 'single host IP'}`)
   console.log(`Report: ${OUT_FILE}`)
 
   const workers = [
@@ -292,17 +316,20 @@ async function main () {
   // Sanity: normal traffic must not generate client errors
   const fourXx = Object.entries(stats.byStatus).filter(([s]) => s[0] === '4').reduce((a, [, n]) => a + n, 0)
   if (fourXx > 0) stats.notes.push(`WARNING: ${fourXx} 4xx responses were generated -- rule 100160 fired for each one; investigate before the FP measurement`)
+  const typos = stats.failedLogins.length
+  if (typos < OPTS.typos) stats.notes.push(`NOTE: only ${typos}/${OPTS.typos} typos placed (90 s spacing) -- use a longer --duration to place them all`)
 
   stats.duration_s = OPTS.duration
   const report = {
     ...stats,
     finished: new Date().toISOString(),
-    expectedAlerts: OPTS.typos > 0
-      ? `exactly ${OPTS.typos} alerts of rule 100110 (deliberate typos, documented reference false positives); NOTHING else`
+    sourceIps: OPTS.xff
+      ? Object.fromEntries([...OPTS.userList, OPTS.admin].map(u => [u, IPS[u]]))
+      : 'single IP of the host running the script (--sameIp)',
+    expectedAlerts: typos > 0
+      ? `exactly ${typos} alerts of rule 100110 (deliberate typos, documented reference false positives); NOTHING else`
       : 'ZERO alerts 100100-100161; anything else = false positive to qualify',
-    thresholdCheck: OPTS.typos >= 5
-      ? 'careful: >=5 typos close together from one IP would trigger rule 100111 (brute force) -- space them >=60s apart or keep --typos <= 2'
-      : 'typos stay below the brute-force threshold (100111 needs 5 failures/60s/same IP)'
+    thresholdCheck: 'typos are spaced >= 90 s apart (at most 1 failure in any 60 s window): rule 100111 (5 failures/60 s/same IP) cannot fire'
   }
   fs.writeFileSync(OUT_FILE, JSON.stringify(report, null, 2))
   console.log('\n=== SUMMARY ===')
