@@ -13,3 +13,5 @@ detection/samples/training/
 supportdesk/node_modules/
 supportdesk/*.db
 detection/logs/training.log
+
+traffic-report-*.json
