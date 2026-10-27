@@ -1,0 +1,19 @@
+# Prometheus configuration for the Sentinel X monitoring stack.
+#
+# Mounted read-only into the `prometheus` container by the consolidated
+# docker-compose at the repository root:
+#   ./monitoring:/etc/prometheus:ro        (this file)
+#
+# Values match CONTRACT.md §3 by default: PROMETHEUS_TARGET=supportdesk:3000,
+# PROMETHEUS_SCRAPE_INTERVAL=15s. The target is the docker service name of
+# SupportDesk, resolvable on the shared `sentinelx` project network.
+
+global:
+  scrape_interval: 15s     # PROMETHEUS_SCRAPE_INTERVAL (CONTRACT.md §3)
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "supportdesk"
+    metrics_path: /metrics   # public endpoint, no session needed
+    static_configs:
+      - targets: ["supportdesk:3000"]  # PROMETHEUS_TARGET (CONTRACT.md §3)
