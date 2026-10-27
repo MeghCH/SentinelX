@@ -5,6 +5,7 @@ const path = require("path");
 const db = require("./database/db");
 const seed = require("./database/seed");
 const { isAuthenticated } = require("./middleware/auth");
+const { metrics, expose } = require("./middleware/metrics");
 const { logger, emitError } = require("./middleware/logger");
 
 const authRouter = require("./routes/auth");
@@ -24,6 +25,11 @@ seed();
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+// Prometheus metrics (CONTRACT.md §6). Mounted before the logger: both share
+// the request lifecycle; /metrics is excluded from logging and from its own
+// counters so scrapes never pollute the families.
+app.use(metrics);
+
 // Structured JSONL logging (CONTRACT.md §4).
 // Mounted FIRST -- before body parsing, static and session -- so the raw
 // request body can be captured for §4.1 sanitization, static files and
@@ -41,6 +47,17 @@ app.use(
     saveUninitialized: false,
   }),
 );
+
+// Prometheus exposition (CONTRACT.md §6): text format 0.0.4, public (the
+// scraper runs without a session), excluded from logs and metrics counters.
+// res.writeHead bypasses Express' content-type re-serialization so the header
+// leaves byte-for-byte as the contract specifies it.
+app.get("/metrics", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+  });
+  res.end(expose());
+});
 
 app.get("/", (req, res) => res.redirect("/login"));
 
