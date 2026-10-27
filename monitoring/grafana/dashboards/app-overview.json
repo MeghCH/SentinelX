@@ -1,0 +1,160 @@
+{
+  "uid": "supportdesk-app",
+  "title": "SupportDesk — application overview",
+  "description": "Application health and activity from the five contract families (CONTRACT.md §6). Detection alerts live in Wazuh; this dashboard must never fire detection.",
+  "tags": ["sentinelx", "supportdesk"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "15s",
+  "time": { "from": "now-15m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "path",
+        "label": "Endpoint",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(supportdesk_http_requests_total, path)",
+        "refresh": 2,
+        "includeAll": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requests / s by endpoint",
+      "description": "Throughput per normalized route pattern (cardinality bounded, D-002).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (path) (rate(supportdesk_http_requests_total{path=~\"$path\"}[5m]))",
+          "legendFormat": "{{path}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "title": "Requests / s by HTTP status",
+      "description": "Status bands: 2xx/3xx healthy, 4xx/5xx worth investigating (4xx also feed Wazuh rule 100160).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(supportdesk_http_requests_total[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "title": "p95 latency by endpoint",
+      "description": "95th percentile from the duration histogram (buckets 10ms → 10s).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(supportdesk_http_request_duration_seconds_bucket{path=~\"$path\"}[5m])))",
+          "legendFormat": "{{path}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 2.5 }, { "color": "red", "value": 5 } ] } } }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "title": "Error rate (%) — 4xx + 5xx",
+      "description": "Share of client/server errors in total traffic. Normal traffic must keep this near zero (otherwise Wazuh 100160/100161 fire).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (sum(rate(supportdesk_http_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(supportdesk_http_requests_total[5m])))",
+          "legendFormat": "error rate %"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "title": "Auth attempts / s by outcome",
+      "description": "Login attempts (both outcomes return 302, the app stages the real outcome). Failure spikes = brute-force attempts → Wazuh 100110/100111.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(supportdesk_auth_attempts_total[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.08 } ] } } }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "title": "In-flight requests",
+      "description": "Requests currently being served (gauge). Sustained growth = saturation.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "supportdesk_http_in_flight_requests",
+          "legendFormat": "in-flight"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "title": "Average latency",
+      "description": "Mean request duration: duration_seconds_sum / duration_seconds_count.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(supportdesk_http_request_duration_seconds_sum[5m])) / sum(rate(supportdesk_http_request_duration_seconds_count[5m]))",
+          "legendFormat": "avg latency"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 8,
+      "title": "Application info",
+      "description": "Static app identity (version, environment) — one sample per build.",
+      "type": "table",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "supportdesk_app_info",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "Value": true } } }
+      ],
+      "options": {}
+    }
+  ]
+}

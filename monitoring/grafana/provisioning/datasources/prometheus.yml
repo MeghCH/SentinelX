@@ -1,0 +1,15 @@
+apiVersion: 1
+
+# Grafana datasource provisioning for Sentinel X (W3).
+# The `prometheus` docker service is resolvable on the shared `sentinelx`
+# project network; the fixed uid is what dashboards reference.
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
