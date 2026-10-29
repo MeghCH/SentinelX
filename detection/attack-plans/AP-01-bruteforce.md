@@ -21,7 +21,7 @@ Scenario-specific constraints:
 ### Scope
 
 - **Target endpoint:** `POST /login`
-- **Target account:** a valid username (`admin@techco.local`) with a wrong password, to generate `auth_failure` events.
+- **Target account:** a valid username (`admin@supportdesk.local`) with a wrong password, to generate `auth_failure` events.
 - **Out of scope:** every other endpoint; any write/delete action on tickets.
 
 ### Attack vectors
@@ -41,10 +41,10 @@ Example commands (final version recorded in the runbook):
 # Single failed login (sanity check)
 curl -s -o /dev/null -w "%{http_code}\n" \
   -X POST http://localhost:3000/login \
-  -d 'email=admin@techco.local&password=wrong'
+  -d 'email=admin@supportdesk.local&password=wrong'
 
 # Brute force with hydra
-hydra -l admin@techco.local -P passwords.txt \
+hydra -l admin@supportdesk.local -P passwords.txt \
   localhost -s 3000 http-post-form \
   "/login:email=^USER^&password=^PASS^:error=1"
 ```
