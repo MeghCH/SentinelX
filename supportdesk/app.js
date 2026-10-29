@@ -13,6 +13,7 @@ const ticketsRouter = require("./routes/tickets");
 const adminRouter = require("./routes/admin");
 const profileRouter = require("./routes/profile");
 const kbRouter = require("./routes/kb");
+const healthRouter = require("./routes/health");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -66,6 +67,7 @@ app.use("/tickets", ticketsRouter);
 app.use("/admin", adminRouter);
 app.use("/profile", profileRouter);
 app.use("/kb", kbRouter);
+app.use("/healthz", healthRouter);
 
 app.get("/dashboard", isAuthenticated, (req, res) => {
   const user = {
@@ -114,3 +116,4 @@ if (require.main === module) {
     console.log(`SupportDesk running on http://localhost:${PORT}`);
   });
 }
+
