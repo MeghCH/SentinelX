@@ -30,7 +30,7 @@ DURATION="${DURATION:-600}"
 INDEXER_URL="${INDEXER_URL:-https://localhost:9200}"
 INDEXER_USER="${INDEXER_USER:-admin}"
 INDEXER_PASS="${INDEXER_PASS:-SecretPassword}"
-TRAF_OUT="$(pwd)/detection/tests/last-fp-traffic.json"
+TRAF_OUT="$REPO_ROOT/supportdesk/traffic-report-fp.json"  # must live under APP_ROOT: in container fallback the repo tree sits under /app, host paths are invisible
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 post() { python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get('$1')))" 2>/dev/null; }
@@ -64,9 +64,10 @@ python3 - "$TRAF_OUT" <<'PYEOF'
 import json, sys
 try:
     t = json.load(open(sys.argv[1]))
-    assert t.get("requests_total", 0) > 0
+    assert t.get("requests", 0) > 0
+    assert 4 not in [int(s) // 100 for s in (t.get("byStatus") or {})]  # no 4xx: rule 100160 would fire
 except Exception:
-    print("ABORT: traffic session produced no requests (no report or empty run)")
+    print("ABORT: traffic report missing/empty or contains 4xx (rule 100160 would make the window dirty)")
     sys.exit(2)
 PYEOF
 [ $? -ne 0 ] && exit 2
@@ -125,9 +126,12 @@ report = {
     "all_wazuh_alerts_in_window": all_count,
     "sentinelx_custom_alerts_in_window": fps,
     "normal_traffic_performance": {
-        "requests_total": traf.get("requests_total"),
-        "events_emitted": traf.get("events_emitted"),
-        "error_rate_pct": traf.get("summary", {}).get("error_rate_pct", traf.get("error_rate_pct")),
+        "requests": traf.get("requests"),
+        "duration_s": traf.get("duration_s"),
+        "sessions": len(traf.get("sessions", [])),
+        "failed_logins": len(traf.get("failedLogins", [])),
+        "byStatus": traf.get("byStatus"),
+        "expectedAlerts": traf.get("expectedAlerts"),
     },
     "method": ("CONTRACT.md section 10: one realistic normal-traffic session; every Sentinel X "
                "custom alert (100100-100161) inside the window is a false positive. Each alert "
