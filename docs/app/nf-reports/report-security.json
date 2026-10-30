@@ -1,0 +1,56 @@
+{
+  "started": "2026-10-30T11:28:30.642Z",
+  "base": "http://127.0.0.1:4612",
+  "summary": {
+    "pass": 7,
+    "fail": 0,
+    "warn": 1
+  },
+  "results": [
+    {
+      "kind": "PASS",
+      "id": "S1 session cookie HttpOnly",
+      "detail": "connect.sid is HttpOnly (express-session default)"
+    },
+    {
+      "kind": "PASS",
+      "id": "S2 failed login keeps the secret out of the redirect",
+      "detail": "status 302, Location /login?error=1"
+    },
+    {
+      "kind": "PASS",
+      "id": "S3 internal error is generic, no stack trace",
+      "detail": "status 500, stack leak: false, body head: Internal server error"
+    },
+    {
+      "kind": "PASS",
+      "id": "S4 anonymous protected access",
+      "detail": "all protected pages redirect to /login (302)"
+    },
+    {
+      "kind": "PASS",
+      "id": "S5 non-admin /admin is 403 without user data",
+      "detail": "status 403, user list leaked: false"
+    },
+    {
+      "kind": "PASS",
+      "id": "S6 /metrics public per contract, no users in labels",
+      "detail": "status 200, user identifiers in labels: false (D-002)"
+    },
+    {
+      "kind": "WARN",
+      "id": "S7 static KB file reachable without auth (documented anomaly, D-005)",
+      "detail": "GET /kb/password-policy.html -> 200 (vulnerable app by design; static requests are only logged as generic request events)"
+    },
+    {
+      "kind": "PASS",
+      "id": "S8 /healthz is a clean anonymous healthcheck",
+      "detail": "status 200, body: {\"status\":\"ok\",\"db\":\"up\",\"uptime_s\":10,\"version\":\"1.0.0\"}"
+    }
+  ],
+  "notes": [
+    "S7 is a known, deliberately kept anomaly (vulnerable SupportDesk, D-005). It is a WARN, not a regression.",
+    "Authentication headers/cookies are never persisted in any report."
+  ],
+  "verdict": "SECURITY_POSTURE_OK"
+}

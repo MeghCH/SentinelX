@@ -1,0 +1,1 @@
+{"started": "2026-10-30T11:30:56Z", "finished": "2026-10-30T11:31:10Z", "service": "supportdesk", "appUrl": "http://127.0.0.1:4613", "budgetSeconds": 60, "downtimeSeconds": 14, "recoveredWithinBudget": true, "healthzCode": "200"}

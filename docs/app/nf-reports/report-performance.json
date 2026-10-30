@@ -1,0 +1,42 @@
+{
+  "started": "2026-10-30T11:29:05.400Z",
+  "finished": "2026-10-30T11:29:05.400Z",
+  "base": "http://127.0.0.1:4612",
+  "duration_s": 30,
+  "concurrency": 10,
+  "requests_total": 59048,
+  "byEndpoint": {
+    "GET /tickets": 11370,
+    "GET /profile": 2791,
+    "GET /tickets/:id": 8419,
+    "GET /login": 8424,
+    "GET /": 2854,
+    "GET /dashboard": 11056,
+    "POST /tickets/search": 2925,
+    "GET /healthz": 2872,
+    "GET /kb": 2775,
+    "GET /metrics": 2775,
+    "GET /kb/view": 2787
+  },
+  "statuses": {
+    "200": 44995,
+    "301": 2775,
+    "302": 11278
+  },
+  "errors": 0,
+  "error_rate_pct": 0,
+  "throughput_reqps": 1968.3,
+  "latency_ms": {
+    "p50": 5,
+    "p90": 7,
+    "p95": 8,
+    "p99": 11,
+    "min": 1,
+    "max": 26,
+    "mean": 5.1
+  },
+  "thresholds": {
+    "max_error_rate_pct": 0.5,
+    "verdict": "PERF_OK"
+  }
+}
