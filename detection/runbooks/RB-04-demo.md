@@ -55,10 +55,10 @@ curl -s -o /dev/null -w "qli: %{http_code}\n" \
 
 ## 6. Observation 2 -- la chaîne est complète
 
-L'alerte **100121** apparaît dans Wazuh avec le payload dans `http.request.body` (D-009). Le dashboard Grafana montre le passage du trafic (taux d'erreur inchangé, la tentative ne casse rien -- attaque "silencieuse" qualifiée par l'app). Milestone de démo -- assister la fenêtre précédente à savoir :
-- attry 100111 (brute force) **et** 100121 (SQLi) dans Wazuh ;
-- aucun faux positif sur le trafic normal du rapport W3-06 (rapports committés en fin de run : `detection/tests/fp-report-<ts>.json`, `detection/tests/last-fp-traffic.json`) ;
-- Grafana ne perd rien pendant l'attaquee – l'observabilité reste au-dessus des seuils non-fonctionnels (p95 reste en millisecondes).
+L'alerte **100121** apparaît dans Wazuh avec le payload dans `http.request.body` (D-009) : la tentative ne casse rien côté app (200), seule la détection la voit. À montrer au jury, la fenêtre Wazuh contient :
+- **100111** (brute force) **et** **100121** (SQLi) dans Wazuh, avec leur contexte (IP source, payload dans `http.request.body`) ;
+- aucun faux positif sur le trafic normal du rapport W3-06 (rapports committés : `detection/tests/fp-report-<ts>.json` ; le rapport de trafic brut `traffic-report-fp-*.json` est généré à l'exécution et non versionné, cf. `.gitignore`) ;
+- Grafana ne perd rien pendant l'attaque -- l'observabilité tient les seuils non-fonctionnels (p95 en millisecondes, cf. `docs/app/nf-reports/`).
 
 ## 7. Terminée -- état de fin de session
 
@@ -68,3 +68,13 @@ L'alerte **100121** apparaît dans Wazuh avec le payload dans `http.request.body
 ## Bonus -- dwell time par scénario
 
 Pour chaque attaque ci-dessus, le délai = timestamp de la dernière tentative (tête des logs app `detection/logs/app.jsonl`) moins le timestamp de la première alerte custom 1001xx correspondant dans Wazuh. À documenter dans le rapport final (bonus sujet "measure per-scenario detection time").
+
+## 8. Exécution de référence (2026-10-30, LXC `sentinelx` sur toast, stack consolidée)
+
+Scène exécutée en direct avec la stack 6 services et l'indexer green :
+
+- bruteforce : 10 tentatives → **9 × 100110 (level 3) + 1 × 100111 (level 10)** ;
+- SQLi : `POST /tickets/search` authentifié → **1 × 100121** ;
+- aucune autre alerte custom : la scène ne bruite pas la chaîne ;
+- dwell time observé : **< 2 s** entre la requête et l'alerte indexée ;
+- conclusions reportées dans la §10 du [rapport de qualification](../../docs/detection/alert-qualification-report.md).

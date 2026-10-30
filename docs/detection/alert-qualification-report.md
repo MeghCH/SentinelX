@@ -144,3 +144,49 @@ Une variante du script (`--typos N`) permet d'injecter N fautes de frappe espac�
 Elle génère exactement N alertes `100110` (niveau 3) mais aucune alerte `100111` : elle démontre
 que le seuil de brute force (5 échecs / 60 s) n'est pas franchi par des erreurs humaines isolées.
 À exécuter pour renforcer la justification du seuil si nécessaire.
+
+---
+
+## 9. Re-mesure finale (W3-06) -- stack consolidée complète
+
+Re-mesure du taux de faux positifs sur l'environnement **final consolidé** (compose racine :
+app + Prometheus + Grafana + Wazuh) après fusion des waves 3. Même méthode (§1), même script de trafic.
+
+| Élément               | Valeur                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| Date                  | 2026-10-30                                                                                   |
+| Hôte                  | LXC `149 sentinelx` (toast, 4 c / 12 Go), stack 6 services `Up`, indexer **green**             |
+| Fenêtre               | 600 s (12:17:15 → 12:27:23 UTC)                                                              |
+| Outil                 | `detection/tests/fp-measure.sh` (trafic + agrégation indexer dans la fenêtre exacte)          |
+| Trafic normal         | **1058 requêtes**, 6 sessions, **0 login échoué**, 0 payload suspect                          |
+| Statuts               | 200 ×917, 302 ×130, 500 ×11                                                                  |
+| Alertes dans la fenêtre | 144 (toutes règles confondues, natives machine incluses)                                    |
+| Alertes custom 100100-100161 | **0**                                                                                 |
+| **Taux de faux positifs**   | **0 / 144 = 0.0 %** (chaîne custom : 0 alerte)                                          |
+
+Rapport versionné : [`fp-report-20261030T121715.json`](../../detection/tests/fp-report-20261030T121715.json)
+(le rapport de trafic brut généré à l'exécution, `traffic-report-fp-*.json`, n'est pas versionné :
+convention `.gitignore` du repo, `traffic-report-*`). Script :
+[`detection/tests/fp-measure.sh`](../../detection/tests/fp-measure.sh) (exit 2 si la fenêtre tourne à vide ou
+remonte du 4xx : un verdict OK sur une fenêtre vide serait lui-même un faux positif de l'outil).
+
+Les 11 réponses 500 confirment l'observation §6 (bugs applicatifs sous charge normale, aucune règle
+custom ne cible les 5xx). Confirmations de détection effective le même jour : T-004 PASS 3/3 avec
+les samples, et scène démo RB-04 exécutée en direct (§10).
+
+---
+
+## 10. Démo live RB-04 (2026-10-30, même stack)
+
+Scène exécutée après la fenêtre de mesure (12:27:xx UTC) via le runbook
+[`RB-04-demo.md`](../../detection/runbooks/RB-04-demo.md) :
+
+| Étape | Exécution | Résultat Wazuh (indexer, `now-10m`) |
+| ----- | --------- | ----------------------------------- |
+| Brute force (10 logins échoués `admin@supportdesk.local`) | curl ×10, 302 (verdict dans l'event, D-004) | `100110` ×9 (level 3, échec unitaire) + **`100111` level 10 (brute force agrégée)** |
+| SQLi (`POST /tickets/search`, payload `' OR '1'='1`) | login user + POST, 200 | **`100121` level 5** |
+| Dwell time | requête → alerte indexée | **< 2 s** (ingestion + indexation) |
+
+11 alertes custom au total, exactement celles attendues par la scène, aucune autre : la chaîne
+détecte les deux attaques du démo sans bruit parasite. Le dashboard Grafana est resté alimenté
+pendant toute la mesure (scrape `supportdesk` up).

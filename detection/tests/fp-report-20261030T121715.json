@@ -1,0 +1,27 @@
+{
+  "test": "W3-06 final false-positive measurement (full consolidated stack)",
+  "window": {
+    "start": "2026-10-30T12:17:15Z",
+    "end": "2026-10-30T12:27:23Z",
+    "duration_s": 600
+  },
+  "all_wazuh_alerts_in_window": 144,
+  "sentinelx_custom_alerts_in_window": 0,
+  "normal_traffic_performance": {
+    "requests": 1058,
+    "duration_s": 600,
+    "sessions": 6,
+    "failed_logins": 0,
+    "byStatus": {
+      "200": 917,
+      "302": 130,
+      "500": 11
+    },
+    "expectedAlerts": "ZERO alerts 100100-100161; anything else = false positive to qualify"
+  },
+  "method": "CONTRACT.md section 10: one realistic normal-traffic session; every Sentinel X custom alert (100100-100161) inside the window is a false positive. Each alert carries its sample context for justification.",
+  "false_positives": [],
+  "verdict": "FP_RATE_OK (0 Sentinel X alerts on normal traffic)",
+  "note_all_count": "recomputed from the indexer after the run (the _count call in the run was malformed and returned null); window unchanged",
+  "interpretation": "144 alerts in the window in total (includes Wazuh native infra/hardening rules on the host itself); 0 are Sentinel X custom rules (100100-100161). False-positive rate for the custom detection chain = 0/144 = 0.0% (and the custom chain alone: 0 alerts)."
+}

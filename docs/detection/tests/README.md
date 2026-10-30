@@ -15,11 +15,13 @@
 | [T-011](T-011-rule-100160-scan.md)           | Scan d'endpoints (404 isolée, rafale de 4xx)                           | 100160, 100161       | ✅                                           | 2026-10-20 |
 | [T-012](T-012-native-rules-training-logs.md) | Règles natives Wazuh sur logs d'entraînement SSH (secrepo)             | 5710, 5712 (natives) | ✅                                           | 2026-10-20 |
 | [T-013](T-013-dry-run-real-app.md)           | Dry-run : chaîne complète sur l'application réelle                     | 100110, 100111       | ✅                                           | 2026-10-22 |
-| fp-measure.sh                                | Mesure finale des faux positifs sur la stack consolidée (trafic 600 s) | 100100–100161        | ⏳                                           |            |
+| fp-measure.sh                                | Mesure finale des faux positifs sur la stack consolidée (trafic 600 s) | 100100–100161        | ✅                                           | 2026-10-30 |
 
 ## W3-06 : mesure finale des faux positifs
 
 Script [`detection/tests/fp-measure.sh`](../../detection/tests/fp-measure.sh) : une session de trafic réaliste (`../scripts/traffic.js --duration 600`), puis agrégation des alertes 100100–100161 indexées dans la fenêtre exacte. Verdict `FP_RATE_OK` attendu (cf. rapport de qualification). Rapports JSON horodatés dans `detection/tests/`.
+
+**Résultat du 2026-10-30 (LXC 149, stack consolidée 6 services, indexer green)** : 1058 requêtes normales / 600 s, 0 login échoué, 0 alerte custom (0/144 alertes totales, natives machine incluses) → **taux de faux positifs 0.0 %**. Voir la §9 du rapport de qualification.
 
 Nous pouvons rejouer les tests avec ce script -> run.sh.
 

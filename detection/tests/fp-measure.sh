@@ -93,7 +93,7 @@ RESP=$(curl -sk -u "$INDEXER_USER:$INDEXER_PASS" "$INDEXER_URL/wazuh-alerts-*/_s
   -H 'content-type: application/json' -d "$QUERY")
 ALL_COUNT=$(curl -sk -u "$INDEXER_USER:$INDEXER_PASS" "$INDEXER_URL/wazuh-alerts-*/_count" \
   -H 'content-type: application/json' \
-  -d "{\"query\":{\"bool\":{\"filter\":[{\"range\":{\"timestamp\":{\"gte\":\"$T0\",\"lte\":\"$T1\"}}}]}},\"aggs\":{}}" \
+  -d "{\"query\":{\"bool\":{\"filter\":[{\"range\":{\"timestamp\":{\"gte\":\"$T0\",\"lte\":\"$T1\"}}}]}}}" \
   | post count)
 
 python3 - "$T0" "$T1" "$DURATION" "$ALL_COUNT" "$TRAF_OUT" "$OUT" "$RESP" <<'PYEOF'
