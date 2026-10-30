@@ -14,7 +14,12 @@
 | [T-010](T-010-rule-100130-ssrf.md)           | SSRF sur /admin/fetch (métadonnées, localhost, fetch externe)          | 100130               | ✅                                           | 2026-10-20 |
 | [T-011](T-011-rule-100160-scan.md)           | Scan d'endpoints (404 isolée, rafale de 4xx)                           | 100160, 100161       | ✅                                           | 2026-10-20 |
 | [T-012](T-012-native-rules-training-logs.md) | Règles natives Wazuh sur logs d'entraînement SSH (secrepo)             | 5710, 5712 (natives) | ✅                                           | 2026-10-20 |
-| [T-013](T-013-dry-run-real-app.md)           | Dry-run : chaîne complète sur l'application réelle                     | 100110, 100111       | ✅                                           | 2026-10-22 |     | 2026-10-20 |     | 2026-10-20 |
+| [T-013](T-013-dry-run-real-app.md)           | Dry-run : chaîne complète sur l'application réelle                     | 100110, 100111       | ✅                                           | 2026-10-22 |
+| fp-measure.sh                                | Mesure finale des faux positifs sur la stack consolidée (trafic 600 s) | 100100–100161        | ⏳                                           |            |
+
+## W3-06 : mesure finale des faux positifs
+
+Script [`detection/tests/fp-measure.sh`](../../detection/tests/fp-measure.sh) : une session de trafic réaliste (`../scripts/traffic.js --duration 600`), puis agrégation des alertes 100100–100161 indexées dans la fenêtre exacte. Verdict `FP_RATE_OK` attendu (cf. rapport de qualification). Rapports JSON horodatés dans `detection/tests/`.
 
 Nous pouvons rejouer les tests avec ce script -> run.sh.
 
