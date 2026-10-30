@@ -3,8 +3,8 @@
 > Livrable de l'étape 3 : mesure du taux de faux positifs de la chaîne de détection
 > sur du trafic normal, et qualification des alertes.
 
-- **Date de la mesure :** 2026-10-26
-- **Auteur :** [ton nom]
+- **Date de la mesure :** 26-10-2026
+- **Auteur :** Meghan CRESCI-HUMANN / William BURGER
 - **Version Wazuh :** 4.14.9 (single-node)
 - **Application :** SupportDesk V1
 - **Règles évaluées :** 100100-100161 (toutes les règles custom du projet)
@@ -152,17 +152,17 @@ que le seuil de brute force (5 échecs / 60 s) n'est pas franchi par des erreurs
 Re-mesure du taux de faux positifs sur l'environnement **final consolidé** (compose racine :
 app + Prometheus + Grafana + Wazuh) après fusion des waves 3. Même méthode (§1), même script de trafic.
 
-| Élément               | Valeur                                                                                       |
-| --------------------- | -------------------------------------------------------------------------------------------- |
-| Date                  | 2026-10-30                                                                                   |
-| Hôte                  | LXC `149 sentinelx` (toast, 4 c / 12 Go), stack 6 services `Up`, indexer **green**             |
-| Fenêtre               | 600 s (12:17:15 → 12:27:23 UTC)                                                              |
-| Outil                 | `detection/tests/fp-measure.sh` (trafic + agrégation indexer dans la fenêtre exacte)          |
-| Trafic normal         | **1058 requêtes**, 6 sessions, **0 login échoué**, 0 payload suspect                          |
-| Statuts               | 200 ×917, 302 ×130, 500 ×11                                                                  |
-| Alertes dans la fenêtre | 144 (toutes règles confondues, natives machine incluses)                                    |
-| Alertes custom 100100-100161 | **0**                                                                                 |
-| **Taux de faux positifs**   | **0 / 144 = 0.0 %** (chaîne custom : 0 alerte)                                          |
+| Élément                      | Valeur                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| Date                         | 2026-10-30                                                                           |
+| Hôte                         | LXC `149 sentinelx` (toast, 4 c / 12 Go), stack 6 services `Up`, indexer **green**   |
+| Fenêtre                      | 600 s (12:17:15 → 12:27:23 UTC)                                                      |
+| Outil                        | `detection/tests/fp-measure.sh` (trafic + agrégation indexer dans la fenêtre exacte) |
+| Trafic normal                | **1058 requêtes**, 6 sessions, **0 login échoué**, 0 payload suspect                 |
+| Statuts                      | 200 ×917, 302 ×130, 500 ×11                                                          |
+| Alertes dans la fenêtre      | 144 (toutes règles confondues, natives machine incluses)                             |
+| Alertes custom 100100-100161 | **0**                                                                                |
+| **Taux de faux positifs**    | **0 / 144 = 0.0 %** (chaîne custom : 0 alerte)                                       |
 
 Rapport versionné : [`fp-report-20261030T121715.json`](../../detection/tests/fp-report-20261030T121715.json)
 (le rapport de trafic brut généré à l'exécution, `traffic-report-fp-*.json`, n'est pas versionné :
@@ -181,11 +181,11 @@ les samples, et scène démo RB-04 exécutée en direct (§10).
 Scène exécutée après la fenêtre de mesure (12:27:xx UTC) via le runbook
 [`RB-04-demo.md`](../../detection/runbooks/RB-04-demo.md) :
 
-| Étape | Exécution | Résultat Wazuh (indexer, `now-10m`) |
-| ----- | --------- | ----------------------------------- |
+| Étape                                                     | Exécution                                   | Résultat Wazuh (indexer, `now-10m`)                                                 |
+| --------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Brute force (10 logins échoués `admin@supportdesk.local`) | curl ×10, 302 (verdict dans l'event, D-004) | `100110` ×9 (level 3, échec unitaire) + **`100111` level 10 (brute force agrégée)** |
-| SQLi (`POST /tickets/search`, payload `' OR '1'='1`) | login user + POST, 200 | **`100121` level 5** |
-| Dwell time | requête → alerte indexée | **< 2 s** (ingestion + indexation) |
+| SQLi (`POST /tickets/search`, payload `' OR '1'='1`)      | login user + POST, 200                      | **`100121` level 5**                                                                |
+| Dwell time                                                | requête → alerte indexée                    | **< 2 s** (ingestion + indexation)                                                  |
 
 11 alertes custom au total, exactement celles attendues par la scène, aucune autre : la chaîne
 détecte les deux attaques du démo sans bruit parasite. Le dashboard Grafana est resté alimenté
