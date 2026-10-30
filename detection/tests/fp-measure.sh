@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# W3-06 -- final false-positive measurement on the FULL consolidated stack.
+#
+# Runs one realistic-traffic session (scripts/traffic.js --duration, no
+# failed logins, no suspicious payloads) against SupportDesk, then counts
+# every Sentinel X custom alert (rules 100100-100161) indexed by Wazuh
+# inside the exact measure window. Any alert on pure normal traffic is a
+# false positive; each one is reported with its sample document so it can
+# be justified in the alert-qualification report.
+#
+# Usage (on the consolidated-stack host, e.g. inside the project LXC):
+#   cd /opt/sentinelx && DURATION=600 detection/tests/fp-measure.sh
+# Variables:
+#   BASE         app URL         (default http://localhost:3000)
+#   DURATION     traffic seconds (default 600 -- CONTRACT.md section 12)
+#   INDEXER_URL  default https://localhost:9200
+#   INDEXER_USER/PASS: compose defaults admin / SecretPassword
+#
+# Output: detection/tests/fp-report-<ts>.json + stdout verdict.
+# Exit 0 iff there are zero Sentinel X alerts on normal traffic.
+
+set -uo pipefail
+cd "$(dirname "$0")/.." || exit 2           # repo root
+APP_ROOT="$(pwd)/supportdesk"
+OUT="$(pwd)/detection/tests/fp-report-$(date -u +%Y%m%dT%H%M%S).json"
+
+BASE="${BASE:-http://localhost:3000}"
+DURATION="${DURATION:-600}"
+INDEXER_URL="${INDEXER_URL:-https://localhost:9200}"
+INDEXER_USER="${INDEXER_USER:-admin}"
+INDEXER_PASS="${INDEXER_PASS:-SecretPassword}"
+TRAF_OUT="$(pwd)/detection/tests/last-fp-traffic.json"
+
+ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+post() { python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get('$1')))" 2>/dev/null; }
+
+# 0. Sanity: app healthy + indexer reachable
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/healthz")" = "200" ] \
+  || { echo "ABORT: app not healthy on $BASE"; exit 2; }
+curl -sk -u "$INDEXER_USER:$INDEXER_PASS" "$INDEXER_URL" >/dev/null \
+  || { echo "ABORT: indexer unreachable on $INDEXER_URL"; exit 2; }
+
+T0=$(ts)
+echo "=== FP measure: normal traffic from $T0 for ${DURATION}s ==="
+node "$APP_ROOT/scripts/traffic.js" --base "$BASE" --duration "$DURATION" --out "$TRAF_OUT"
+T1="$(date -u +%Y-%m-%dT%H:%M)59Z"          # generous close (indexer flush latency)
+
+# 1. Let the indexer flush, then aggregate the window per custom rule id
+sleep 10
+
+QUERY='{"size":0,"query":{"bool":{"filter":[{"range":{"timestamp":{"gte":"'"$T0"'","lte":"'"$T1"'"}}}]}},
+"aggs":{"rules":{"terms":{"field":"rule.id","size":100},"aggs":{"samples":{"top_hits":{
+"size":1,"_source":["rule.description","rule.level","data","http"],
+"sort":[{"timestamp":{"order":"desc"}}]}}}}}}}'
+
+RESP=$(curl -sk -u "$INDEXER_USER:$INDEXER_PASS" "$INDEXER_URL/wazuh-alerts-*/_search" \
+  -H 'content-type: application/json' -d "$QUERY")
+ALL_COUNT=$(curl -sk -u "$INDEXER_USER:$INDEXER_PASS" "$INDEXER_URL/wazuh-alerts-*/_count" \
+  -H 'content-type: application/json' \
+  -d "{\"query\":{\"bool\":{\"filter\":[{\"range\":{\"timestamp\":{\"gte\":\"$T0\",\"lte\":\"$T1\"}}}]}},\"aggs\":{}}" \
+  | post count)
+
+python3 - "$T0" "$T1" "$DURATION" "$ALL_COUNT" "$TRAF_OUT" "$OUT" "$RESP" <<'PYEOF'
+import json, sys
+t0, t1, dur_s, all_count, traf_path, out_path, resp = sys.argv[1:8]
+try:
+    r = json.loads(resp)
+    buckets = r.get("aggregations", {}).get("rules", {}).get("buckets", [])
+except Exception as e:
+    print("ABORT: bad indexer aggregation response:", e, file=sys.stderr)
+    sys.exit(2)
+
+fp_rows = []
+for b in buckets:
+    rid = b.get("key")
+    if not isinstance(rid, int):
+        continue
+    if 100100 <= rid <= 100161:
+        hits = b.get("samples", {}).get("hits", {}).get("hits", [])
+        src = (hits[0].get("_source", {}) if hits else {})
+        fp_rows.append({
+            "rule_id": rid,
+            "count": b.get("doc_count"),
+            "description": (src.get("rule") or {}).get("description", ""),
+            "level": (src.get("rule") or {}).get("level"),
+            "sample": {"data": src.get("data"), "http": src.get("http")},
+        })
+
+try:
+    traf = json.load(open(traf_path))
+except Exception:
+    traf = {}
+fps = sum(f["count"] for f in fp_rows)
+
+report = {
+    "test": "W3-06 final false-positive measurement (full consolidated stack)",
+    "window": {"start": t0, "end": t1, "duration_s": int(dur_s)},
+    "all_wazuh_alerts_in_window": all_count,
+    "sentinelx_custom_alerts_in_window": fps,
+    "normal_traffic_performance": {
+        "requests_total": traf.get("requests_total"),
+        "events_emitted": traf.get("events_emitted"),
+        "error_rate_pct": traf.get("summary", {}).get("error_rate_pct", traf.get("error_rate_pct")),
+    },
+    "method": ("CONTRACT.md section 10: one realistic normal-traffic session; every Sentinel X "
+               "custom alert (100100-100161) inside the window is a false positive. Each alert "
+               "carries its sample context for justification."),
+    "false_positives": fp_rows,
+    "verdict": ("FP_RATE_OK (0 Sentinel X alerts on normal traffic)" if fps == 0
+                else "FP_ALERTS_FOUND - each needs justification in the qualification report"),
+}
+open(out_path, "w").write(json.dumps(report, indent=2, ensure_ascii=False))
+print(json.dumps(report, indent=2, ensure_ascii=False))
+sys.exit(0 if fps == 0 else 1)
+PYEOF
+RC=$?
+echo "report: $OUT"
+[ "$RC" = "0" ] && echo "VERDICT: FP_RATE_OK" || echo "VERDICT: FP_ALERTS_FOUND"
+exit "$RC"
