@@ -57,7 +57,15 @@ if [ "$TRAFFIC_CMD" = "node" ] && ! node -e 'process.exit(0)' >/dev/null 2>&1; t
 else
   TRAFFIC_BASE="$BASE"
 fi
-$TRAFFIC_CMD --base "$TRAFFIC_BASE" --duration "$DURATION" --out "$TRAF_OUT"
+# --out must be a path THE TRAFFIC PROCESS can see: under the mounted repo tree
+# in container mode (/app), the host path itself in node mode. Host side always
+# reads $APP_ROOT/traffic-report-fp.json (same file node).
+if [ "$TRAFFIC_CMD" = "node" ]; then
+  TRAF_OUT_ARG="$APP_ROOT/traffic-report-fp.json"
+else
+  TRAF_OUT_ARG="/app/traffic-report-fp.json"
+fi
+$TRAFFIC_CMD --base "$TRAFFIC_BASE" --duration "$DURATION" --out "$TRAF_OUT_ARG"
 # Integrity guard: if traffic.js produced no report, the window ran empty --
 # an "OK" verdict on an empty window would be a false positive of the tool itself.
 python3 - "$TRAF_OUT" <<'PYEOF'
