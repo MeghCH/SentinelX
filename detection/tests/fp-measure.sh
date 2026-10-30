@@ -50,9 +50,14 @@ TRAFFIC_CMD="${TRAFFIC_CMD:-node}"
 if [ "$TRAFFIC_CMD" = "node" ] && ! node -e 'process.exit(0)' >/dev/null 2>&1; then
   # node missing OR broken (half-installed) -- fall back to a node container
   TRAFFIC_CMD="docker run --rm --network sentinelx_default -v $APP_ROOT:/app -w /app node:20-alpine node /app/scripts/traffic.js"
+  # inside the compose network the app is reachable by its service DNS name,
+  # not the published host port -- sanity checks below keep probing $BASE (host)
+  TRAFFIC_BASE="http://supportdesk:3000"
   echo "[i] host node not usable, using node:20-alpine container for traffic.js"
+else
+  TRAFFIC_BASE="$BASE"
 fi
-$TRAFFIC_CMD --base "$BASE" --duration "$DURATION" --out "$TRAF_OUT"
+$TRAFFIC_CMD --base "$TRAFFIC_BASE" --duration "$DURATION" --out "$TRAF_OUT"
 # Integrity guard: if traffic.js produced no report, the window ran empty --
 # an "OK" verdict on an empty window would be a false positive of the tool itself.
 python3 - "$TRAF_OUT" <<'PYEOF'
