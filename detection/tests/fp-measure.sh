@@ -47,12 +47,25 @@ echo "=== FP measure: normal traffic from $T0 for ${DURATION}s ==="
 # TRAFFIC_CMD must wrap it in a node container, e.g.:
 #   TRAFFIC_CMD="docker run --rm --network sentinelx_default -v $APP_ROOT:/app -w /app node:20-alpine node /app/scripts/traffic.js"
 TRAFFIC_CMD="${TRAFFIC_CMD:-node}"
-if ! command -v node >/dev/null 2>&1 && [ "$TRAFFIC_CMD" = "node" ]; then
+if [ "$TRAFFIC_CMD" = "node" ] && ! node -e 'process.exit(0)' >/dev/null 2>&1; then
+  # node missing OR broken (half-installed) -- fall back to a node container
   TRAFFIC_CMD="docker run --rm --network sentinelx_default -v $APP_ROOT:/app -w /app node:20-alpine node /app/scripts/traffic.js"
-  echo "[i] host node not found, using node:20-alpine container for traffic.js"
+  echo "[i] host node not usable, using node:20-alpine container for traffic.js"
 fi
 $TRAFFIC_CMD --base "$BASE" --duration "$DURATION" --out "$TRAF_OUT"
-T1="$(date -u +%Y-%m-%dT%H:%M)59Z"          # generous close (indexer flush latency)
+# Integrity guard: if traffic.js produced no report, the window ran empty --
+# an "OK" verdict on an empty window would be a false positive of the tool itself.
+python3 - "$TRAF_OUT" <<'PYEOF'
+import json, sys
+try:
+    t = json.load(open(sys.argv[1]))
+    assert t.get("requests_total", 0) > 0
+except Exception:
+    print("ABORT: traffic session produced no requests (no report or empty run)")
+    sys.exit(2)
+PYEOF
+[ $? -ne 0 ] && exit 2
+T1="$(date -u +%Y-%m-%dT%H:%M:%SZ)"  # generous close (indexer flush latency)
 
 # 1. Let the indexer flush, then aggregate the window per custom rule id
 sleep 10
