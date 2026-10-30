@@ -34,6 +34,6 @@ docker compose up -d          # depuis la racine du repo
 
 - **RAM** : 8–12 Go requis au total (OpenSearch ~4 Go heap). Le trio léger (app + Prometheus + Grafana) tourne sur ~1 Go et a été validé seul sur machine 4 Go.
 - **Wazuh 5–15 min au premier boot** : Prometheus/Grafana sont indépendants et fonctionnent pendant que Wazuh démarre.
-- **Healthchecks/depends_on** explicités plus tard : la task junior `feat/W03-healthz` ajoute `/healthz`, le healthcheck de l'app passera de `/metrics` à `/healthz` à sa merge (bonus sujet).
+- **Healthchecks/`depends_on` explicites** (bonus sujet) : SupportDesk sonde `/healthz` (node fetch, DB-aware), Prometheus `/-/healthy` (wget), Grafana `/api/health` (wget) avec `depends_on: prometheus healthy` ; `docker compose ps` affiche l'état `(healthy)`.
 - **Sécurité Grafana** : identifiants par défaut `admin/admin` (lab) ; surcharge par variables au `.env` jamais commité (règle repo).
 - **Pas de rétention longue** : volumes nommés par défaut du compose Wazuh ; l'archivage/retention n'est pas un livrable du sujet.

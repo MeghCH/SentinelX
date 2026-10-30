@@ -26,4 +26,11 @@ services:
     volumes:
       # Shared with detection/wazuh/docker-compose.wazuh.yml (../logs = detection/logs)
       - ../detection/logs:/var/log/sentinelx
+    healthcheck:
+      # node (not curl) is guaranteed present in the runtime image; /healthz is anonymous and DB-aware (H02).
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
