@@ -38,7 +38,7 @@
 | 15 | GET | `/kb` | Yes | **301 → `/kb/` (static, before auth)**; then 302 → `/login` if not logged in (tested); 200 when logged in | Yes | tested (301 + 302) |
 | 16 | GET | `/kb/view?doc=` | Yes | 302 → `/login` if not logged in (auth runs first, tested); 404 "Document not found"; 500 if `doc` is missing; 200 with a real file | Yes | tested (302 / 500 / 200) |
 | 17 | GET | `/metrics` | — | 200 — Prometheus exposition per contract §6, exact content type `text/plain; version=0.0.4; charset=utf-8` | Yes | **tested (200, live since W3-01)** |
-| 18 | GET | `/healthz` | — | JSON `{status, version, uptime_s, db}`; 503 if DB down | (healthcheck addenda) | **in progress (task `feat/W03-healthz`)** |
+| 18 | GET | `/healthz` | — | 200 `{"status":"ok","db":"up",...}` JSON `{status, version, uptime_s, db}`; 503 if DB down | (healthcheck addenda) | **tested (200, live since `feat/H03-healthz`)** |
 
 ---
 
@@ -87,8 +87,8 @@
 
 ## 4. Discrepancies with the Contract
 
-* `/profile` (GET and POST) and `POST /tickets/:id/comment` exist in the application but are not listed in §7: to be added to the contract or excluded from tests.
-* `/metrics` now EXISTS and answers 200 with the exact §6 content type (implemented in W3-01, tested). The health endpoint under construction is `/healthz` (task `feat/W03-healthz`).
+* `POST /tickets/:id/comment`, `GET /profile` and `POST /profile` exist in the app AND are listed in §7 (verified) — the contract covers them for testing.
+* `/healthz` EXISTS (merged `feat/H03-healthz`, suite 31/31): 200 `{status, version, uptime_s, db}` anonymous, 503 if the DB is down. The contract §7 now lists it (v0.3.1).
 * Default port: 3000 (`app.js`), 3000 in the contract (§2) — in line; Docker sets `PORT=3000` explicitly.
 * `sentinel-app:8080` (old Trello wording) vs `supportdesk:3000`: resolved — the contract, the compose files and the Prometheus scrape (W3-02) all use `supportdesk:3000`.
 
@@ -151,5 +151,5 @@ curl -i -b cookies.txt "http://localhost:3000/kb/view"
 ## 7. To Do
 
 * ~~Test `/kb/` (with the trailing slash) then `/kb/view?doc=<real file>` using a name taken from `ls public/kb`.~~ — done (tested, see §2/§3).
-* Test if a file in `public/kb` is accessible without authentication: `curl -i http://localhost:3000/kb/<file>.html`. — **done: 200 (tested), see Static Files**.
-* Have the team validate the contract §7 delta (rows 10–12 exist in the app, absent from §7).
+* ~~Test if a file in `public/kb` is accessible without authentication: `curl -i http://localhost:3000/kb/<file>.html`.~~ — **done: 200 (tested), see Static Files**.
+* ~~Have the team validate the contract §7 delta (rows 10–12 absent from §7).~~ — **resolved: §7 (v0.3.1) already lists comment/profile; `/healthz` added.**

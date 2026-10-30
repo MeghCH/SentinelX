@@ -1,7 +1,7 @@
 # Sentinel X - Technical Contract
 
-**Version:** 0.3.0-draft  
-**Status:** Draft for team validation  
+**Version:** 0.3.1
+**Status:** Draft for team validation (v0.3.1 folds the implemented addenda D-014–D-017; team review at the next check-in)  
 **Application:** SupportDesk
 
 ## 1. Scope
@@ -174,8 +174,9 @@ The first functional test suite must cover at least:
 - `GET /kb`
 - `GET /kb/view`
 - `GET /metrics`
+- `GET /healthz` (healthcheck: `{status, version, uptime_s, db}`, 503 if the database is down)
 
-The final endpoint map, expected responses and authentication requirements must be documented.
+The final endpoint map, expected responses and authentication requirements must be documented (see `docs/detection/Endpoints.md`).
 
 ## 8. Wazuh integration
 
@@ -242,6 +243,10 @@ The observation period and traffic volume must be recorded with the result.
 - **D-011:** Ticket accesses carry `target.owner_id` so that IDOR is detectable from a single event (§4.3).
 - **D-012:** Custom rule IDs are split into sub-ranges per attack pattern (§8).
 - **D-013:** The application computes `target.owned_by_user` because Wazuh rules cannot compare two fields of the same event (identified while preparing T-006). IDOR is also detectable behaviorally (one user exporting many distinct tickets).
+- **D-014:** Observability chain order is metrics → logger → urlencoded → static → session → routers: the metric registers BEFORE the log can write (`/metrics` is neither logged nor counted) and the logger sees every later request. The logger adds `security.indicator: admin_area` on `/admin` and `/admin/fetch` and rounds `duration_ms` to 0.1 ms.
+- **D-015:** The event action catalog is closed and documented (§4.3 action column). 500 errors emit the explicit `internal_error` action via the final error handler; both login outcomes return HTTP 302, so the real outcome is staged on the event (D-004) and read by `auth_attempts_total`.
+- **D-016:** `better-sqlite3` must be `^12.11.1`: the school-pinned v9.6.0 fails to compile on modern Node (C++20 headers); v12 keeps the same API (prepare/run/get/all) and ships prebuilds (validated by the 31-test suite).
+- **D-017:** Non-routed requests (static misses, probes) are labeled `/unmatched` on the `path` metric label instead of one label per file — bounded cardinality (D-002) applied to the scan case.
 
 ## 12. Open decisions for validation
 
