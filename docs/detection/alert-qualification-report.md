@@ -4,7 +4,7 @@
 > sur du trafic normal, et qualification des alertes.
 
 - **Date de la mesure :** 26-10-2026
-- **Auteur :** Meghan CRESCI-HUMANN / William BURGER
+- **Auteur :** Meghan CRESCI-HUMANN / Wyliam BURGER
 - **Version Wazuh :** 4.14.9 (single-node)
 - **Application :** SupportDesk V1
 - **Règles évaluées :** 100100-100161 (toutes les règles custom du projet)
