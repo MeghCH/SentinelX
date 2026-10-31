@@ -3,10 +3,13 @@
 #
 # Runs one realistic-traffic session (scripts/traffic.js --duration, no
 # failed logins, no suspicious payloads) against SupportDesk, then counts
-# every Sentinel X custom alert (rules 100100-100161) indexed by Wazuh
-# inside the exact measure window. Any alert on pure normal traffic is a
-# false positive; each one is reported with its sample document so it can
-# be justified in the alert-qualification report.
+# every Sentinel X custom alert (project range 100100-100199, CONTRACT.md
+# section 8) indexed by Wazuh inside the exact measure window. Any custom
+# alert on pure normal traffic is a false positive; each one is reported with
+# its sample document so it can be justified in the alert-qualification
+# report. Native Wazuh alerts of the same window (host SCA, training.log,
+# daemons...) are out of the custom-chain scope: they are listed per rule and
+# per `location` so the report can show none comes from app.jsonl.
 #
 # Usage (on the consolidated-stack host, e.g. inside the project LXC):
 #   cd /opt/sentinelx && DURATION=600 detection/tests/fp-measure.sh
@@ -62,6 +65,9 @@ fi
 # reads $APP_ROOT/traffic-report-fp.json (same file node).
 if [ "$TRAFFIC_CMD" = "node" ]; then
   TRAF_OUT_ARG="$APP_ROOT/traffic-report-fp.json"
+  # host node: the script path must be given explicitly (the container
+  # command above already carries /app/scripts/traffic.js)
+  TRAFFIC_CMD="node $APP_ROOT/scripts/traffic.js"
 else
   TRAF_OUT_ARG="/app/traffic-report-fp.json"
 fi
@@ -85,9 +91,11 @@ T1="$(date -u +%Y-%m-%dT%H:%M:%SZ)"  # generous close (indexer flush latency)
 sleep 10
 
 QUERY='{"size":0,"query":{"bool":{"filter":[{"range":{"timestamp":{"gte":"'"$T0"'","lte":"'"$T1"'"}}}]}},
-"aggs":{"rules":{"terms":{"field":"rule.id","size":100},"aggs":{"samples":{"top_hits":{
+"aggs":{"rules":{"terms":{"field":"rule.id","size":100},"aggs":{
+"locations":{"terms":{"field":"location","size":5}},
+"samples":{"top_hits":{
 "size":1,"_source":["rule.description","rule.level","data","http"],
-"sort":[{"timestamp":{"order":"desc"}}]}}}}}}}'
+"sort":[{"timestamp":{"order":"desc"}}]}}}}}}'
 
 RESP=$(curl -sk -u "$INDEXER_USER:$INDEXER_PASS" "$INDEXER_URL/wazuh-alerts-*/_search" \
   -H 'content-type: application/json' -d "$QUERY")
@@ -106,33 +114,61 @@ except Exception as e:
     print("ABORT: bad indexer aggregation response:", e, file=sys.stderr)
     sys.exit(2)
 
-fp_rows = []
+fp_rows, native_rows = [], []
 for b in buckets:
-    rid = b.get("key")
-    if not isinstance(rid, int):
+    # rule.id is a keyword in the wazuh-alerts template: bucket keys are
+    # STRINGS ("100121"). Comparing them as ints silently skipped every
+    # custom alert before this fix (verdict always OK).
+    try:
+        rid = int(b.get("key"))
+    except (TypeError, ValueError):
         continue
-    if 100100 <= rid <= 100161:
-        hits = b.get("samples", {}).get("hits", {}).get("hits", [])
-        src = (hits[0].get("_source", {}) if hits else {})
-        fp_rows.append({
+    hits = b.get("samples", {}).get("hits", {}).get("hits", [])
+    src = (hits[0].get("_source", {}) if hits else {})
+    if not 100100 <= rid <= 100199:
+        native_rows.append({
             "rule_id": rid,
             "count": b.get("doc_count"),
             "description": (src.get("rule") or {}).get("description", ""),
-            "level": (src.get("rule") or {}).get("level"),
-            "sample": {"data": src.get("data"), "http": src.get("http")},
+            "locations": {l.get("key"): l.get("doc_count")
+                          for l in b.get("locations", {}).get("buckets", [])},
         })
+        continue
+    fp_rows.append({
+        "rule_id": rid,
+        "count": b.get("doc_count"),
+        "description": (src.get("rule") or {}).get("description", ""),
+        "level": (src.get("rule") or {}).get("level"),
+        "sample": {"data": src.get("data"), "http": src.get("http")},
+    })
 
 try:
     traf = json.load(open(traf_path))
 except Exception:
     traf = {}
 fps = sum(f["count"] for f in fp_rows)
+native_from_app = sum(n["locations"].get("/var/log/sentinelx/app.jsonl", 0) for n in native_rows)
+requests = traf.get("requests") or 0
 
 report = {
     "test": "W3-06 final false-positive measurement (full consolidated stack)",
     "window": {"start": t0, "end": t1, "duration_s": int(dur_s)},
     "all_wazuh_alerts_in_window": all_count,
     "sentinelx_custom_alerts_in_window": fps,
+    "fp_rate": {
+        # Normal-only window: every custom alert is a FP, so FP / custom alerts
+        # is 0/0 (undefined) when the chain stays silent. The volume-normalised
+        # figure is the meaningful one here (CONTRACT.md section 10).
+        "false_positives": fps,
+        "custom_alerts": fps,
+        "normal_requests": requests,
+        "fp_per_1000_requests": round(1000 * fps / requests, 3) if requests else None,
+    },
+    "native_alerts_in_window": {
+        "count": sum(n["count"] for n in native_rows),
+        "from_app_jsonl": native_from_app,
+        "by_rule": native_rows,
+    },
     "normal_traffic_performance": {
         "requests": traf.get("requests"),
         "duration_s": traf.get("duration_s"),
@@ -142,8 +178,9 @@ report = {
         "expectedAlerts": traf.get("expectedAlerts"),
     },
     "method": ("CONTRACT.md section 10: one realistic normal-traffic session; every Sentinel X "
-               "custom alert (100100-100161) inside the window is a false positive. Each alert "
-               "carries its sample context for justification."),
+               "custom alert (100100-100199) inside the window is a false positive. Each alert "
+               "carries its sample context for justification. Native Wazuh alerts are listed "
+               "per rule and location, outside the custom-chain FP rate."),
     "false_positives": fp_rows,
     "verdict": ("FP_RATE_OK (0 Sentinel X alerts on normal traffic)" if fps == 0
                 else "FP_ALERTS_FOUND - each needs justification in the qualification report"),
