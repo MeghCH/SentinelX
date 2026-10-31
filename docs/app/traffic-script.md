@@ -34,7 +34,7 @@
 taux de faux positifs = faux positifs / total d'alertes
 ```
 
-Pendant la durée convenue, enregistrer : le volume du trafic (rapport JSON produit par le script), la période, puis classer chaque alerte Wazuh (vrai/faux positif + justification). Les seules alertes autorisées a priori sont les `100110` des typos en mode `--typos` (référence de FP assumée). Le champ `sourceIps` du rapport donne l'IP de chaque identité, ce qui permet de rattacher une alerte au trafic normal.
+Pendant la durée convenue, enregistrer : le volume du trafic (rapport JSON produit par le script), la période, puis classer chaque alerte Wazuh (vrai/faux positif + justification). Les seules alertes autorisées a priori sont les `100110` des typos en mode `--typos` (référence de FP assumée). Le champ `sourceIps` du rapport donne l'IP de chaque identité, ce qui permet de rattacher une alerte au trafic normal. Périmètre : les alertes custom `100100`-`100199` ; sur une fenêtre purement normale le ratio vaut `0 / 0` si la chaîne reste muette, le résultat est donc aussi exprimé en faux positifs pour 1000 requêtes (cf. §1 du [rapport de qualification](../detection/alert-qualification-report.md)).
 
 ## Usage
 
@@ -63,3 +63,4 @@ node scripts/traffic.js --duration 600 --sameIp
 - La carte des tickets possédés reflète `database/seed.js` (42 tickets, ids 1–42) ; la mettre à jour si la seed change.
 - Pas d'adresse d'expéditeur suspecte : user-agent navigateur plausible (Chrome sous Windows) sur chaque requête.
 - Les sessions sont réelles (cookies) : quelques re-login/logout par employé pendant la durée.
+- **HTTP 500 attendus** : le terme `probleme d'impression` du vocabulaire de recherche contient une apostrophe qui casse la requête SQL volontairement injectable de `POST /tickets/search` (≈ 1 recherche sur 9 → 500 + événement `internal_error`). C'est le symptôme fonctionnel de la vulnérabilité d'AP-03 (D-005), conservé exprès : il prouve qu'une apostrophe légitime ne déclenche pas `100121`. Aucune règle custom ne cible les 5xx. Détail : §6 du [rapport de qualification](../detection/alert-qualification-report.md).

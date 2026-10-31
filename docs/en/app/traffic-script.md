@@ -34,7 +34,7 @@
 false-positive rate = false positives / total alerts
 ```
 
-Over the agreed duration, record: the traffic volume (JSON report produced by the script) and the period, then classify each Wazuh alert (true/false positive + justification). The only alerts expected a priori are the `100110` alerts from typos in `--typos` mode (assumed FP reference). The `sourceIps` field of the report gives each identity's IP, which makes it possible to tie an alert back to the normal traffic.
+Over the agreed duration, record: the traffic volume (JSON report produced by the script) and the period, then classify each Wazuh alert (true/false positive + justification). The only alerts expected a priori are the `100110` alerts from typos in `--typos` mode (assumed FP reference). The `sourceIps` field of the report gives each identity's IP, which makes it possible to tie an alert back to the normal traffic. Scope: custom alerts `100100`-`100199`; on a purely normal window the ratio is `0 / 0` if the chain stays silent, so the result is also expressed as false positives per 1000 requests (see §1 of the [alert qualification report](../detection/alert-qualification-report.md)).
 
 ## Usage
 
@@ -63,3 +63,4 @@ node scripts/traffic.js --duration 600 --sameIp
 - The owned-tickets map reflects `database/seed.js` (42 tickets, ids 1–42); update it if the seed changes.
 - No suspicious sender address: plausible browser user-agent (Chrome on Windows) on every request.
 - Sessions are real (cookies): a few re-login/logout cycles per employee over the duration.
+- **Expected HTTP 500s**: the search term `probleme d'impression` contains an apostrophe that breaks the intentionally injectable SQL query of `POST /tickets/search` (≈ 1 search out of 9 → 500 + `internal_error` event). It is the functional symptom of the AP-03 vulnerability (D-005), kept on purpose: it proves that a legitimate apostrophe does not trigger `100121`. No custom rule targets 5xx. Details: §6 of the [alert qualification report](../detection/alert-qualification-report.md).
