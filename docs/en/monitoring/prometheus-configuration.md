@@ -10,7 +10,7 @@
 | `evaluation_interval` | `15s`                  | aligned with the scrape                  |
 | job `supportdesk`   | `supportdesk:3000`, path `/metrics` | CONTRACT.md §3 (`PROMETHEUS_TARGET`) |
 
-The target is SupportDesk's **docker service name**, resolvable on the `sentinelx` project network created by the consolidated compose (W3). The `/metrics` path is public (no session required, see [`metrics-design.md`](./metrics-design.md)).
+The target is SupportDesk's **docker service name**, resolvable on the `sentinelx` project network created by the consolidated compose (W3). The `/metrics` path is public (no session required, see [`metrics-design.md`](../../app/metrics-design.md)).
 
 ## Verifying the scrape works
 

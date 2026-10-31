@@ -30,15 +30,15 @@
 | 7 | POST | `/tickets/search` | Yes | 200 (filtered list); 302 → `/login` if not logged in | Yes | tested |
 | 8 | GET | `/tickets/:id` | Yes | 200 (detail); 404 "Ticket not found"; 302 → `/login` if not logged in | Yes | tested |
 | 9 | GET | `/tickets/:id/export` | Yes | 200 (.txt file); 404 "Not found"; 302 → `/login` if not logged in | Yes | tested |
-| 10 | POST | `/tickets/:id/comment` | Yes | 302 → `/tickets/:id`; 302 → `/login` if not logged in | **No** | code |
-| 11 | GET | `/profile` | Yes | 200 (page); 302 → `/login` if not logged in | **No** | code |
-| 12 | POST | `/profile` | Yes | 302 → `/profile`; 302 → `/login` if not logged in | **No** | code |
+| 10 | POST | `/tickets/:id/comment` | Yes | 302 → `/tickets/:id`; 302 → `/login` if not logged in | Yes | tested (302, `npm test`) |
+| 11 | GET | `/profile` | Yes | 200 (page); 302 → `/login` if not logged in | Yes | code |
+| 12 | POST | `/profile` | Yes | 302 → `/profile`; 302 → `/login` if not logged in | Yes | code |
 | 13 | GET | `/admin` | Yes + Admin | 200 (user list); 403 "Accès refusé" if non-admin; 302 → `/login` if not logged in | Yes | tested |
 | 14 | POST | `/admin/fetch` | Yes + Admin | 200 (page with result or "Error: ..."); 403 if non-admin; 302 → `/login` if not logged in | Yes | tested (with a local URL) |
 | 15 | GET | `/kb` | Yes | **301 → `/kb/` (static, before auth)**; then 302 → `/login` if not logged in (tested); 200 when logged in | Yes | tested (301 + 302) |
 | 16 | GET | `/kb/view?doc=` | Yes | 302 → `/login` if not logged in (auth runs first, tested); 404 "Document not found"; 500 if `doc` is missing; 200 with a real file | Yes | tested (302 / 500 / 200) |
 | 17 | GET | `/metrics` | — | 200 — Prometheus exposition per contract §6, exact content type `text/plain; version=0.0.4; charset=utf-8` | Yes | **tested (200, live since W3-01)** |
-| 18 | GET | `/healthz` | — | 200 `{"status":"ok","db":"up",...}` JSON `{status, version, uptime_s, db}`; 503 if DB down | (healthcheck addenda) | **tested (200, live since `feat/H03-healthz`)** |
+| 18 | GET | `/healthz` | — | 200 `{"status":"ok","db":"up",...}` JSON `{status, version, uptime_s, db}`; 503 if DB down | Yes | **tested (200, live since `feat/H03-healthz`)** |
 
 ---
 

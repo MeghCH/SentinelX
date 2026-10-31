@@ -14,7 +14,7 @@
 | [T-010](T-010-rule-100130-ssrf.md) | SSRF on /admin/fetch (metadata, localhost, external fetch) | 100130 | ✅ | 2026-10-20 |
 | [T-011](T-011-rule-100160-scan.md) | Endpoint scanning (single 404, burst of 4xx) | 100160, 100161 | ✅ | 2026-10-20 |
 | [T-012](T-012-native-rules-training-logs.md) | Native Wazuh rules on SSH training logs (secrepo) | 5710, 5712 (native) | ✅ | 2026-10-20 |
-| [T-013](T-013-dry-run-real-app.md) | Dry-run: full chain on the real application | 100110, 100111 | ✅ | 2026-10-22 |     | 2026-10-20 |     | 2026-10-20 |
+| [T-013](T-013-dryrun-100111.md) | Dry-run: full chain on the real application | 100110, 100111 | ✅ | 2026-10-22 |     | 2026-10-20 |     | 2026-10-20 |
 
 Tests can be replayed with this script -> run.sh.
 

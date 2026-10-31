@@ -25,7 +25,7 @@ Grafana est déjà alimenté : http://localhost:3001 (variable `GF_ADMIN_USER`/`
 
 ## 2. État : appli vivante, détection armée
 
-Wazuh dashboard : https://localhost dans un navigateur (certificat self-signed assumé). Filtre par défaut conseillé : `rule.groups:supportdesk`, tri sur le timestamp -- les nouvelles alertes arrivent en tête de liste.
+Wazuh dashboard : https://localhost/app/dashboards#/view/sentinelx-detection dans un navigateur (certificat self-signed assumé) -- dashboard versionné **Sentinel X - Détection SupportDesk**, importé automatiquement par `wazuh.dashboard-init` (filtre `rule.groups:supportdesk` déjà appliqué, cf. [dashboard.md](../../docs/detection/dashboard.md)). Régler le sélecteur de temps sur *Last 15 minutes* : les nouvelles alertes arrivent en tête de la table *Dernières alertes SupportDesk*.
 
 ## 3. Attaque 1 -- Brute force (T-1110, règle 100111)
 
@@ -41,16 +41,22 @@ done
 
 ## 4. Observation 1 -- l'alerte brute force est montée
 
-Dashboard Wazuh : alerte **100111** (brute force sur login), avec l'IP source et le compte d'échecs agrégés dans l'alerte, MITRE T1110 visible dans la fiche. Temps de détection (dwell time, bonus sujet) ≈ 30 s grand max, borné par l'interval d'ingestion de l'indexer. Dans Grafana, le panneau "Auth attempts by outcome" a monté **10×** le compteur `auth_failure` d'un coup après l'attaque.
+Dashboard Wazuh : alerte **100111** (brute force sur login), avec l'IP source et le compte d'échecs agrégés dans l'alerte, MITRE T1110 visible dans la fiche. Temps de détection (dwell time, bonus sujet) : observé **< 2 s** (§8), borné au pire par l'intervalle d'ingestion de l'indexer. Dans Grafana, le panneau **"Auth attempts / s by outcome"** montre le pic de la série `outcome="failure"` (`supportdesk_auth_attempts_total{outcome="failure"}` a pris **+10** d'un coup).
 
 ## 5. Attaque 2 -- SQL injection (T1190, règle 100121)
 
-Executer le hook SQLi de RB-03 : `POST /tickets/search` avec la charge qualifiée et consigner l'alerte **100121**.
+Executer le hook SQLi de RB-03 : `POST /tickets/search` avec la charge qualifiée et consigner l'alerte **100121**. La route exige une session : on se connecte d'abord avec le compte de test `jdupont` (même compte que RB-03) et on garde le cookie dans `cookies-demo.txt`.
 
 ```bash
-curl -s -o /dev/null -w "qli: %{http_code}\n" \
+B=http://localhost:3000
+# 1. Session utilisateur (302 -> /dashboard attendu, sinon le cookie est vide)
+curl -s -c cookies-demo.txt -o /dev/null -w "login: %{http_code} -> %{redirect_url}\n" \
+  -d 'email=jdupont@supportdesk.local&password=User_123' $B/login
+# 2. Injection (200 attendu ; un 302 vers /login = session absente, pas d'alerte)
+curl -s -o /dev/null -w "sqli: %{http_code}\n" \
   -b cookies-demo.txt \
   --data 'search=%27%20OR%20%271%27%3D%271' $B/tickets/search
+rm -f cookies-demo.txt
 ```
 
 ## 6. Observation 2 -- la chaîne est complète

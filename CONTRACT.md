@@ -1,7 +1,7 @@
 # Sentinel X - Technical Contract
 
-**Version:** 0.3.1
-**Status:** Draft for team validation (v0.3.1 folds the implemented addenda D-014–D-017; team review at the next check-in)  
+**Version:** 0.3.2
+**Status:** Draft for team validation (v0.3.1 folds the implemented addenda D-014–D-017, v0.3.2 adds the action catalog §4.4 and D-018; team review at the next check-in)  
 **Application:** SupportDesk
 
 ## 1. Scope
@@ -17,11 +17,14 @@ This document is a draft to validate before instrumentation begins.
 | SupportDesk     | `supportdesk`     |                  3000 | `sentinelx` | Business web application |
 | Prometheus      | `prometheus`      |                  9090 | `sentinelx` | Metrics collection       |
 | Grafana         | `grafana`         |                  3001 | `sentinelx` | Metrics dashboards       |
-| Wazuh manager   | `wazuh.manager`   | 55000 (API, internal) | `sentinelx` | Log analysis and alerts  |
-| Wazuh indexer   | `wazuh.indexer`   |       9200 (internal) | `sentinelx` | Alert and event storage  |
+| Wazuh manager   | `wazuh.manager`   |           55000 (API) | `sentinelx` | Log analysis and alerts  |
+| Wazuh indexer   | `wazuh.indexer`   |                  9200 | `sentinelx` | Alert and event storage  |
 | Wazuh dashboard | `wazuh.dashboard` |           443 -> 5601 | `sentinelx` | Detection interface      |
+| Dashboard init  | `wazuh.dashboard-init` |                — | `sentinelx` | One-shot import of the versioned detection dashboard |
 
-Wazuh 4.14.9 is deployed in single-node mode from `detection/wazuh/docker-compose.wazuh.yml`. Service names keep the official dotted form (`wazuh.manager`, …) because TLS certificates are generated for these hostnames. Ports 1514/1515 (agents) are not used: logs are read from a shared file.
+Wazuh 4.14.9 is deployed in single-node mode from `detection/wazuh/docker-compose.wazuh.yml`. Service names keep the official dotted form (`wazuh.manager`, …) because TLS certificates are generated for these hostnames.
+
+Host-published ports are exactly the ones in the table: 3000, 9090, 3001, 443, plus 9200 (indexer, queried from the host by `detection/tests/fp-measure.sh` and `run.sh`) and 55000 (Wazuh API, diagnostics). The agent ports 1514/1515 and syslog 514/udp are **not published**: no agent is enrolled, logs are read from a shared file (D-008). Every service has a healthcheck and the Wazuh startup order uses `depends_on: condition: service_healthy` (D-018).
 
 ## 3. Environment variables
 
@@ -117,6 +120,24 @@ Known limitation: `X-Forwarded-For` is client-controlled and can be rotated to e
 `GET /tickets/:id/export` performs no ownership check. Detecting an IDOR requires the requester (`user.id`) and the owner (`target.owner_id`) in the same event. The export route sets `target.type = ticket`, `target.id`, `target.owner_id` from the ticket's `created_by`, and `target.owned_by_user`. The same applies to `GET /tickets/:id`.
 
 `target.owned_by_user` is computed by the application because Wazuh rules cannot compare two fields of the same event. It is a string (`"true"` / `"false"`), not a boolean, to respect the one-type-per-field rule.
+
+### 4.4 Event action catalog
+
+`event.action` is a closed list (D-015). Together with `event.category` and `event.outcome`, it plays the role of the `event_type` field of the subject's example log: the subject's single value (`auth_failure`) is split into stable, separately filterable fields (`category=authentication`, `action=login`, `outcome=failure`), which is what the detection rules and the dashboard filter on.
+
+| `event.action`   | `event.category` | `event.outcome`      | Emitted by                                  | Subject-style `event_type` (illustrative, not emitted) |
+| ---------------- | ---------------- | -------------------- | ------------------------------------------- | ------------------------------------- |
+| `login`          | `authentication` | `success`, `failure` | `POST /login` (§5: outcome staged, not HTTP status) | `auth_success`, `auth_failure` |
+| `logout`         | `authentication` | `success`            | `GET /logout`                               | `logout`                              |
+| `search`         | `web`            | from HTTP status     | `POST /tickets/search`                      | `ticket_search`                       |
+| `export`         | `web`            | from HTTP status     | `GET /tickets/:id/export`                   | `ticket_export`                       |
+| `kb_view`        | `web`            | from HTTP status     | `GET /kb/view`                              | `kb_view`                             |
+| `request`        | `web`            | from HTTP status     | every other request (incl. 4xx, admin, ticket view, comment) | `http_request`       |
+| `internal_error` | `system`         | `failure`            | final error handler (HTTP 500)              | `internal_error`                      |
+
+"From HTTP status" means `failure` for status >= 400, otherwise `success`. `security.indicator` currently takes one value, `admin_area`, set on `/admin` and `/admin/fetch` (D-014).
+
+Correspondence with the subject's example fields: `timestamp` → `@timestamp`, `level` → `log.level`, `event_type` → `event.category` + `event.action` + `event.outcome` (table above), `source_ip` → `source.ip`, `user` → `user.name`, `endpoint` → `http.request.path`, `method` → `http.request.method`, `status_code` → `http.response.status_code`, `message` → `message`, `query` → `http.request.query`, `body` → `http.request.body`. In Wazuh, decoded fields are prefixed with `data.` (e.g. `data.event.action`).
 
 ## 5. Events to emit
 
@@ -244,9 +265,10 @@ The observation period and traffic volume must be recorded with the result.
 - **D-012:** Custom rule IDs are split into sub-ranges per attack pattern (§8).
 - **D-013:** The application computes `target.owned_by_user` because Wazuh rules cannot compare two fields of the same event (identified while preparing T-006). IDOR is also detectable behaviorally (one user exporting many distinct tickets).
 - **D-014:** Observability chain order is metrics → logger → urlencoded → static → session → routers: the metric registers BEFORE the log can write (`/metrics` is neither logged nor counted) and the logger sees every later request. The logger adds `security.indicator: admin_area` on `/admin` and `/admin/fetch` and rounds `duration_ms` to 0.1 ms.
-- **D-015:** The event action catalog is closed and documented (§4.3 action column). 500 errors emit the explicit `internal_error` action via the final error handler; both login outcomes return HTTP 302, so the real outcome is staged on the event (D-004) and read by `auth_attempts_total`.
+- **D-015:** The event action catalog is closed and documented (§4.4). 500 errors emit the explicit `internal_error` action via the final error handler; both login outcomes return HTTP 302, so the real outcome is staged on the event (D-004) and read by `auth_attempts_total`.
 - **D-016:** `better-sqlite3` must be `^12.11.1`: the school-pinned v9.6.0 fails to compile on modern Node (C++20 headers); v12 keeps the same API (prepare/run/get/all) and ships prebuilds (validated by the 31-test suite).
 - **D-017:** Non-routed requests (static misses, probes) are labeled `/unmatched` on the `path` metric label instead of one label per file — bounded cardinality (D-002) applied to the scan case.
+- **D-018:** Wazuh services carry healthchecks (indexer `_cluster/health`, manager daemons + filebeat, dashboard `/api/status`) chained with `depends_on: condition: service_healthy`; a one-shot `wazuh.dashboard-init` imports the versioned detection dashboard (`detection/wazuh/dashboards/`). Agent and syslog ports (1514/1515, 514/udp) are no longer published since no agent is used (D-008).
 
 ## 12. Open decisions for validation
 
