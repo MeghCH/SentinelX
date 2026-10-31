@@ -17,7 +17,7 @@ Toutes les commandes se lancent **depuis la racine du repo**, sauf indication co
 | Docker + Docker Compose v2 | oui                                   | `docker --version && docker compose version`      |
 | RAM allouée à Docker       | 8 Go recommandés (6 Go minimum)       | Docker Desktop -> Settings -> Resources -> Memory |
 | `vm.max_map_count`         | ≥ 262144                              | voir ci-dessous                                   |
-| Ports libres               | 443, 9200, 55000, 1514, 1515, 514/udp | `ss -tulpn`                                       |
+| Ports libres               | 443, 9200, 55000                      | `ss -tulpn`                                       |
 | Python 3                   | pour le script de tests               | `python3 --version`                               |
 
 ### `vm.max_map_count`
@@ -59,6 +59,7 @@ detection/
 ├── samples/                   # échantillons de logs conformes au contrat
 ├── tests/run.sh               # rejeu automatique des tests
 └── wazuh/
+    ├── dashboards/                        # dashboard Wazuh versionné (ndjson) + script d'import
     ├── docker-compose.wazuh.yml
     ├── generate-indexer-certs.yml
     └── config/
@@ -74,6 +75,7 @@ Modifications par rapport aux fichiers officiels :
 - `docker-compose.wazuh.yml` : `name: sentinelx` (noms de conteneurs prévisibles) et deux montages dans `wazuh.manager` :
   - `../rules` -> `/var/ossec/etc/rules` (dossier entier : tous les `.xml` sont chargés)
   - `../logs` -> `/var/log/sentinelx` (lecture seule)
+- `docker-compose.wazuh.yml` : healthchecks sur les trois services, démarrage ordonné par `depends_on: condition: service_healthy`, service one-shot `wazuh.dashboard-init` (import du dashboard versionné), ports agents/syslog (1514/1515, 514/udp) non publiés.
 - `wazuh_manager.conf` : lecture de `/var/log/sentinelx/app.jsonl` au format `json`.
 
 ---
@@ -104,17 +106,27 @@ Attendu : `admin.pem`, `admin-key.pem`, `root-ca.pem`, `root-ca.key`, `root-ca-m
 
 ```bash
 docker compose -f detection/wazuh/docker-compose.wazuh.yml up -d
-docker ps
+docker compose -f detection/wazuh/docker-compose.wazuh.yml ps
 ```
 
-Attendu : trois conteneurs `Up` - `sentinelx-wazuh.manager-1`, `sentinelx-wazuh.indexer-1`, `sentinelx-wazuh.dashboard-1`.
+Chaque service a un **healthcheck** et le démarrage est ordonné par `depends_on: condition: service_healthy` :
 
-Le démarrage complet prend 1 à 2 minutes.
+| Service                | Healthcheck                                                                                   | Démarre après              |
+| ---------------------- | --------------------------------------------------------------------------------------------- | -------------------------- |
+| `wazuh.indexer`        | `_cluster/health` authentifié en `green` ou `yellow`                                          | -                          |
+| `wazuh.manager`        | `wazuh-analysisd`, `wazuh-logcollector`, `wazuh-db`, `wazuh-apid` et `filebeat` en cours d'exécution | indexer `healthy`   |
+| `wazuh.dashboard`      | `/api/status` : état global `green`                                                           | indexer + manager `healthy` |
+| `wazuh.dashboard-init` | one-shot : importe le dashboard versionné puis s'arrête (exit 0)                               | dashboard `healthy`        |
+
+`up -d` rend donc la main une fois la chaîne prête (quelques minutes au premier démarrage). Attendu : `wazuh.indexer`, `wazuh.manager`, `wazuh.dashboard` en `Up (healthy)` ; `wazuh.dashboard-init` n'apparaît plus dans `ps` (terminé, voir `docker compose -f detection/wazuh/docker-compose.wazuh.yml logs wazuh.dashboard-init` → `OK: 8 objects imported`).
+
+Les ports agents (1514/1515) et syslog (514/udp) ne sont pas publiés : aucun agent n'est enrôlé, les logs sont lus depuis le fichier partagé (contrat §2, D-008).
 
 ### 3.3 Accéder au dashboard
 
 - URL : `https://localhost` (certificat auto-signé : accepter l'avertissement)
 - Identifiants par défaut : `admin` / `SecretPassword`
+- Dashboard du projet : `https://localhost/app/dashboards#/view/sentinelx-detection` (voir [dashboard.md](dashboard.md))
 
 « Wazuh dashboard server is not ready yet » : attendre encore une minute.
 

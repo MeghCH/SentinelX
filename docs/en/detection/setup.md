@@ -17,7 +17,7 @@ All commands run **from the repo root**, unless stated otherwise.
 | Docker + Docker Compose v2  | yes                                    | `docker --version && docker compose version`      |
 | RAM allocated to Docker     | 8 GB recommended (6 GB minimum)        | Docker Desktop -> Settings -> Resources -> Memory |
 | `vm.max_map_count`          | ≥ 262144                               | see below                                         |
-| Free ports                  | 443, 9200, 55000, 1514, 1515, 514/udp  | `ss -tulpn`                                       |
+| Free ports                  | 443, 9200, 55000                       | `ss -tulpn`                                       |
 | Python 3                    | for the test script                    | `python3 --version`                               |
 
 ### `vm.max_map_count`
@@ -59,6 +59,7 @@ detection/
 ├── samples/                   # échantillons de logs conformes au contrat
 ├── tests/run.sh               # rejeu automatique des tests
 └── wazuh/
+    ├── dashboards/                        # versioned Wazuh dashboard (ndjson) + import script
     ├── docker-compose.wazuh.yml
     ├── generate-indexer-certs.yml
     └── config/
@@ -74,6 +75,7 @@ Changes compared with the official files:
 - `docker-compose.wazuh.yml`: `name: sentinelx` (predictable container names) and two mounts in `wazuh.manager`:
   - `../rules` -> `/var/ossec/etc/rules` (whole folder: all `.xml` files are loaded)
   - `../logs` -> `/var/log/sentinelx` (read only)
+- `docker-compose.wazuh.yml`: healthchecks on the three services, startup ordered by `depends_on: condition: service_healthy`, one-shot `wazuh.dashboard-init` service (versioned dashboard import), agent/syslog ports (1514/1515, 514/udp) not published.
 - `wazuh_manager.conf`: reads `/var/log/sentinelx/app.jsonl` in `json` format.
 
 ---
@@ -104,17 +106,27 @@ Expected: `admin.pem`, `admin-key.pem`, `root-ca.pem`, `root-ca.key`, `root-ca-m
 
 ```bash
 docker compose -f detection/wazuh/docker-compose.wazuh.yml up -d
-docker ps
+docker compose -f detection/wazuh/docker-compose.wazuh.yml ps
 ```
 
-Expected: three containers `Up` - `sentinelx-wazuh.manager-1`, `sentinelx-wazuh.indexer-1`, `sentinelx-wazuh.dashboard-1`.
+Each service has a **healthcheck** and startup is ordered by `depends_on: condition: service_healthy`:
 
-Full startup takes 1 to 2 minutes.
+| Service                | Healthcheck                                                                                   | Starts after               |
+| ---------------------- | --------------------------------------------------------------------------------------------- | -------------------------- |
+| `wazuh.indexer`        | authenticated `_cluster/health` is `green` or `yellow`                                        | -                          |
+| `wazuh.manager`        | `wazuh-analysisd`, `wazuh-logcollector`, `wazuh-db`, `wazuh-apid` and `filebeat` running      | indexer `healthy`          |
+| `wazuh.dashboard`      | `/api/status`: overall state `green`                                                          | indexer + manager `healthy` |
+| `wazuh.dashboard-init` | one-shot: imports the versioned dashboard then stops (exit 0)                                 | dashboard `healthy`        |
+
+`up -d` therefore returns once the chain is ready (a few minutes on first start). Expected: `wazuh.indexer`, `wazuh.manager`, `wazuh.dashboard` `Up (healthy)`; `wazuh.dashboard-init` no longer shows in `ps` (finished, see `docker compose -f detection/wazuh/docker-compose.wazuh.yml logs wazuh.dashboard-init` → `OK: 8 objects imported`).
+
+The agent (1514/1515) and syslog (514/udp) ports are not published: no agent is enrolled, logs are read from the shared file (contract §2, D-008).
 
 ### 3.3 Access the dashboard
 
 - URL: `https://localhost` (self-signed certificate: accept the warning)
 - Default credentials: `admin` / `SecretPassword`
+- Project dashboard: `https://localhost/app/dashboards#/view/sentinelx-detection` (see [dashboard.md](dashboard.md))
 
 "Wazuh dashboard server is not ready yet": wait another minute.
 
