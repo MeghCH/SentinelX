@@ -126,6 +126,7 @@ Les ports agents (1514/1515) et syslog (514/udp) ne sont pas publiés : aucun ag
 
 - URL : `https://localhost` (certificat auto-signé : accepter l'avertissement)
 - Identifiants par défaut : `admin` / `SecretPassword`
+- Optionnel : copier `.env.example` vers `.env` pour surcharger les identifiants Wazuh/Grafana (le défaut du labo fonctionne sans rien faire).
 - Dashboard du projet : `https://localhost/app/dashboards#/view/sentinelx-detection` (voir [dashboard.md](dashboard.md))
 
 « Wazuh dashboard server is not ready yet » : attendre encore une minute.

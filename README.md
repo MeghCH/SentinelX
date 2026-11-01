@@ -84,6 +84,8 @@ Attendu : **3 × `[PASS]`**. Prometheus et Grafana sont disponibles pendant le d
 
 Le certificat Wazuh est auto-signé : accepter l'avertissement du navigateur. Le dashboard du projet est `https://localhost/app/dashboards#/view/sentinelx-detection`.
 
+> Optionnel : copier `.env.example` vers `.env` pour surcharger les identifiants Wazuh/Grafana (le défaut du labo fonctionne sans rien faire).
+
 ### Piège connu au premier boot
 
 Le service one-shot `wazuh.dashboard-init` (import du dashboard versionné) peut ne pas démarrer tout seul. Relancer `docker compose up -d`, ou le démarrer explicitement :

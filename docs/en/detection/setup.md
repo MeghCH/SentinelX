@@ -126,6 +126,7 @@ The agent (1514/1515) and syslog (514/udp) ports are not published: no agent is 
 
 - URL: `https://localhost` (self-signed certificate: accept the warning)
 - Default credentials: `admin` / `SecretPassword`
+- Optional: copy `.env.example` to `.env` to override the Wazuh/Grafana credentials (the lab defaults work with no change).
 - Project dashboard: `https://localhost/app/dashboards#/view/sentinelx-detection` (see [dashboard.md](dashboard.md))
 
 "Wazuh dashboard server is not ready yet": wait another minute.
