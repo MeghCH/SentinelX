@@ -25,6 +25,9 @@ router.get('/view', isAuthenticated, (req, res) => {
   if (!doc) {
     return res.status(400).send('Missing doc parameter')
   }
+  if (typeof doc !== 'string') {
+    return res.status(400).send('Invalid doc parameter')
+  }
   // target.id carries the raw doc value: rule 100140 matches
   // http.request.query AND target.id -- both must see the payload
   stage(req, {
