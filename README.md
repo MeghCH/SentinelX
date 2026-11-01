@@ -101,13 +101,7 @@ Attendu dans les logs : `OK: 8 objects imported`. Vérifier ensuite que le dashb
 
 ### Tests de détection
 
-| ID                                          | Objet                                         | Règle(s)      | Résultat | Date       |
-| ------------------------------------------- | --------------------------------------------- | ------------- | -------- | ---------- |
-| [T-001](docs/detection/tests/T-001-json-decoder-compat.md)       | Compatibilité du schéma avec le décodeur JSON | 1002 (native) | ✅       | 2026-10-15 |
-| [T-002](docs/detection/tests/T-002-rule-100110-login-failure.md) | Échec de login unitaire                       | 100110        | ✅       | 2026-10-15 |
-| [T-003](docs/detection/tests/T-003-rule-100111-bruteforce.md)    | Brute force par IP                            | 100111        | ✅       | 2026-10-15 |
-
-Suite complète : `bash detection/tests/run.sh` (~3 min 30). Détail et résultats : [`docs/detection/tests/README.md`](docs/detection/tests/README.md).
+13 tests de détection documentés — détail : [`docs/detection/tests/README.md`](docs/detection/tests/README.md), suite automatisée `bash detection/tests/run.sh`.
 
 ### Tests de l'application
 
