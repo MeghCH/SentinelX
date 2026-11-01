@@ -25,6 +25,7 @@ The repository keeps its original French documentation and provides the same doc
 | Wazuh environment setup                   | [docs/detection/setup.md](../detection/setup.md)    | [docs/en/detection/setup.md](detection/setup.md)                     |
 | Wazuh dashboard                           | [docs/detection/dashboard.md](../detection/dashboard.md) | [docs/en/detection/dashboard.md](detection/dashboard.md)         |
 | Alert qualification report                | [docs/detection/alert-qualification-report.md](../detection/alert-qualification-report.md) | [docs/en/detection/alert-qualification-report.md](detection/alert-qualification-report.md) |
+| Incident report (RB-04, 2026-10-30)       | [docs/detection/incident-report-20261030.md](../detection/incident-report-20261030.md) | French only (not mirrored)                                           |
 | Logging design (application)              | English original                                     | [docs/app/logging-design.md](../app/logging-design.md)                  |
 | Traffic script spec                       | [docs/app/traffic-script.md](../app/traffic-script.md) | [docs/en/app/traffic-script.md](app/traffic-script.md)           |
 | Attack plans AP-01–AP-03                  | [detection/attack-plans/](../../detection/attack-plans/AP-01-bruteforce.md) | English original                            |
