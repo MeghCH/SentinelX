@@ -1,0 +1,36 @@
+{
+  "test": "W3-06 final false-positive measurement (full consolidated stack)",
+  "window": {
+    "start": "2026-11-01T20:24:53Z",
+    "end": "2026-11-01T20:35:13Z",
+    "duration_s": 600
+  },
+  "all_wazuh_alerts_in_window": 0,
+  "sentinelx_custom_alerts_in_window": 0,
+  "fp_rate": {
+    "false_positives": 0,
+    "custom_alerts": 0,
+    "normal_requests": 1034,
+    "fp_per_1000_requests": 0.0
+  },
+  "native_alerts_in_window": {
+    "count": 0,
+    "from_app_jsonl": 0,
+    "by_rule": []
+  },
+  "normal_traffic_performance": {
+    "requests": 1034,
+    "duration_s": 600,
+    "sessions": 6,
+    "failed_logins": 0,
+    "byStatus": {
+      "200": 886,
+      "302": 136,
+      "500": 12
+    },
+    "expectedAlerts": "ZERO alerts 100100-100161; anything else = false positive to qualify"
+  },
+  "method": "CONTRACT.md section 10: one realistic normal-traffic session; every Sentinel X custom alert (100100-100199) inside the window is a false positive. Each alert carries its sample context for justification. Native Wazuh alerts are listed per rule and location, outside the custom-chain FP rate.",
+  "false_positives": [],
+  "verdict": "FP_RATE_OK (0 Sentinel X alerts on normal traffic)"
+}
