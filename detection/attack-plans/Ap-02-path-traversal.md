@@ -3,7 +3,7 @@
 - **ID:** AP-02
 - **Author:** Meghan CRESCI-HUMANN
 - **Date:** 20-10-2026
-- **Status:** ☐ Draft ☐ Validated by team ☐ Executed
+- **Status:** ✅ Validated by team (2026-10-30, Will + Meghan, review + check-in) and executed: traversal payloads → alerts 100140/100141, with the target file read; observations in `detection/runbooks/RB-02-path-traversal.md`
 - **Related detection:** rules 100140 / 100141 - test T-007
 - **Related runbook:** `detection/runbooks/RB-02-path-traversal.md`
 

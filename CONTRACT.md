@@ -1,14 +1,14 @@
 # Sentinel X - Technical Contract
 
-**Version:** 0.3.2
-**Status:** Draft for team validation (v0.3.1 folds the implemented addenda D-014–D-017, v0.3.2 adds the action catalog §4.4 and D-018; team review at the next check-in)  
+**Version:** 0.3.2 (final)
+**Status:** ✅ Validated by the team — all decisions closed, see §12 (validated 2026-10-30, re-confirmed on v0.3.2)  
 **Application:** SupportDesk
 
 ## 1. Scope
 
 SupportDesk must become observable and detectable through Prometheus, Grafana and Wazuh. The application emits one JSON object per line for each relevant event and exposes Prometheus metrics through `/metrics`.
 
-This document is a draft to validate before instrumentation begins.
+This document was validated by the team before instrumentation (see §12); it has tracked every implementation decision since (D-001–D-018).
 
 ## 2. Architecture
 
@@ -231,6 +231,8 @@ Before V1 is accepted:
 - The complete dry-run chain is documented before any attack.
 - Attack plans are written and approved before execution.
 
+Status (2026-10-30): all gates met — contract reviewed team-wide across check-ins, suite 31/31 green, Wazuh chain validated e2e on the consolidated stack (T-004: 3/3), final false-positive measure 0 % (re-confirmed 2026-10-31 with the fixed tool, 0/1043 requests).
+
 ## 10. Traffic and false positives
 
 A normal-traffic script must be defined before final qualification. It must specify:
@@ -248,6 +250,8 @@ false positives / total alerts
 ```
 
 The observation period and traffic volume must be recorded with the result.
+
+Agreed measure (validated with the team, 2026-10-30): **600 s sessions** of the versioned traffic script (`supportdesk/scripts/traffic.js`, ~1050 requests, 0 failed logins), measured on the final consolidated stack with `detection/tests/fp-measure.sh`. Results: 0 custom alert on normal traffic — 2026-10-30 run (1058 requests), re-confirmed 2026-10-31 with the custom-vs-native fixed tool (1043 requests). Qualification report §9–§11.
 
 ## 11. Decision log
 
@@ -270,10 +274,12 @@ The observation period and traffic volume must be recorded with the result.
 - **D-017:** Non-routed requests (static misses, probes) are labeled `/unmatched` on the `path` metric label instead of one label per file — bounded cardinality (D-002) applied to the scan case.
 - **D-018:** Wazuh services carry healthchecks (indexer `_cluster/health`, manager daemons + filebeat, dashboard `/api/status`) chained with `depends_on: condition: service_healthy`; a one-shot `wazuh.dashboard-init` imports the versioned detection dashboard (`detection/wazuh/dashboards/`). Agent and syslog ports (1514/1515, 514/udp) are no longer published since no agent is used (D-008).
 
-## 12. Open decisions for validation
+## 12. Validation record
 
-- Validate the exact list of sensitive endpoints.
-- Validate the three attack scenarios before writing rules.
-- Confirm the traffic duration and false-positive measurement method.
-- Confirm retention and handling rules for IP addresses and user agents.
-- Confirm indexing of `http.request.query`, `target.owner_id` and `target.owned_by_user` once the matching rules exist (T-006 follow-up).
+All originally-open decisions are closed (validated 2026-10-30 by the team — Will + Meghan — across check-ins, re-confirmed on v0.3.2):
+
+- **List of sensitive endpoints:** resolved — union of the application routes and §7, documented in `docs/detection/Endpoints.md` (incl. `/healthz`, `/metrics`, profile and comments).
+- **Attack scenarios before rules:** resolved — AP-01 (brute force), Ap-02 (path traversal), Ap-03 (SQL injection) validated and executed (runbooks RB-01–RB-03, demo RB-04).
+- **Traffic duration and false-positive method:** resolved — 600 s sessions, versioned script, `fp-measure.sh` aggregation (custom vs native, §10).
+- **IP and user-agent handling:** resolved — logged locally in the lab only (shared `detection/logs/` file, D-008); no external sharing, no session/cookie material, passwords masked (§4.1); volumes reset with the lab.
+- **Indexing of `http.request.query`, `target.owner_id`, `target.owned_by_user`:** resolved — indexed and consumed by rules 100120/121, 100150/151 (T-006, T-008, live demo RB-04).

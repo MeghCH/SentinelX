@@ -3,7 +3,7 @@
 - **ID:** AP-01
 - **Author:** Meghan CRESCI-HUMANN
 - **Date:** 20-10-2026
-- **Status:** ☐ Draft ☐ Validated by team ☐ Executed
+- **Status:** ✅ Validated by team (2026-10-30, Will + Meghan, review + check-in) and executed: 10 hydra attempts (wordlist, parallel + sequential) → alerts 100110/100111; observations in `detection/runbooks/RB-01-bruteforce.md`, re-verified live on the consolidated stack (RB-04 demo, dwell < 2 s)
 - **Related detection:** rules 100110 / 100111 - tests T-002, T-003, T-005
 - **Related runbook:** `detection/runbooks/RB-01-bruteforce.md`
 

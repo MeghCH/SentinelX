@@ -3,7 +3,7 @@
 - **ID:** AP-03
 - **Author:** Meghan CRESCI-HUMANN
 - **Date:** 20-10-2026
-- **Status:** ☐ Draft ☐ Validated by team ☐ Executed
+- **Status:** ✅ Validated by team (2026-10-30, Will + Meghan, review + check-in) and executed: payload injection via curl + sqlmap → alerts 100120/100121; re-verified live on the consolidated stack (RB-03 and RB-04 demo)
 - **Related detection:** rules 100120 / 100121 - test T-009
 - **Related runbook:** `detection/runbooks/RB-03-sql-injection.md`
 

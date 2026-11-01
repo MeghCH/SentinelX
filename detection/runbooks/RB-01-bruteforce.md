@@ -50,7 +50,7 @@ docker exec sentinelx-wazuh.manager-1 grep -c '"id":"100111"' /var/ossec/logs/al
 **Variante A - parallèle (rafale, 10 tâches simultanées) :**
 
 ```bash
-hydra -l admin@techco.local -P /tmp/passwords.txt \
+hydra -l admin@supportdesk.local -P /tmp/passwords.txt \
   -s 3000 127.0.0.1 http-post-form \
   "/login:email=^USER^&password=^PASS^:Invalid credentials" \
   -V
@@ -59,7 +59,7 @@ hydra -l admin@techco.local -P /tmp/passwords.txt \
 **Variante B - séquentiel (une tentative à la fois) :**
 
 ```bash
-hydra -l admin@techco.local -P /tmp/passwords.txt \
+hydra -l admin@supportdesk.local -P /tmp/passwords.txt \
   -s 3000 127.0.0.1 http-post-form \
   "/login:email=^USER^&password=^PASS^:Invalid credentials" \
   -t 1 -V
