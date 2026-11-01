@@ -231,7 +231,7 @@ Before V1 is accepted:
 - The complete dry-run chain is documented before any attack.
 - Attack plans are written and approved before execution.
 
-Status (2026-10-30): all gates met — contract reviewed team-wide across check-ins, suite 31/31 green, Wazuh chain validated e2e on the consolidated stack (T-004: 3/3), final false-positive measure 0 % (re-confirmed 2026-10-31 with the fixed tool, 0/1043 requests).
+Status (2026-10-30): all gates met — contract reviewed team-wide across check-ins, suite 39/39 green, Wazuh chain validated e2e on the consolidated stack (T-004: 3/3), final false-positive measure 0 % (re-confirmed 2026-10-31 with the fixed tool, 0/1043 requests).
 
 ## 10. Traffic and false positives
 

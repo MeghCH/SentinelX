@@ -1,7 +1,7 @@
 # SupportDesk — metrics & Prometheus exposition (implementation of contract §6)
 
 **Branch:** `feat/W03-app-metrics` — 2026-10-27
-**Status:** implemented + tested; the suite grows from 20 to 28 checks (`npm test` in `supportdesk/`).
+**Status:** implemented + tested; the suite grows from 20 to 39 checks (`npm test` in `supportdesk/`).
 
 ## What is implemented
 
@@ -68,7 +68,7 @@ the same request lifecycle. At `res.finish` the metrics middleware also reads
 the staging zone the logger middleware creates, so the two observability
 layers stay consistent by construction.
 
-## Test coverage (8 new checks, suite = 28)
+## Test coverage (8 new checks, suite = 39)
 
 - exact content-type + `# TYPE` lines for the 5 families
 - `app_info` version/environment
