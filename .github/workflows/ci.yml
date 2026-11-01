@@ -1,0 +1,25 @@
+# Functional test suite (CONTRACT §7) for SupportDesk Express.
+# Runs on every push to main/dev and every PR targeting them, so a regression
+# is caught before it reaches the shared branches.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+        working-directory: supportdesk
+      - name: Run functional tests
+        run: npm test
+        working-directory: supportdesk
