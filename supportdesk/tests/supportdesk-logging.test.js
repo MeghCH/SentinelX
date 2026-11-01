@@ -436,3 +436,40 @@ test('chain: every written line stays a single valid JSON line', () => {
   state.server.closeAllConnections()
   state.server.close()
 })
+// ---------- Unit: body-capture race (early response before request 'end') ----------
+
+test('finish before request end still captures the partially arrived body', async () => {
+  const { EventEmitter } = require('node:events')
+  const req = new EventEmitter()
+  req.method = 'POST'
+  req.originalUrl = '/W16-race-probe?x=1'
+  req.url = req.originalUrl
+  req.headers = { 'content-type': 'application/json' }
+  req.on = EventEmitter.prototype.on.bind(req)
+  const res = new EventEmitter()
+  res.on = EventEmitter.prototype.on.bind(res)
+  let nextCalled = false
+  logger(req, res, () => { nextCalled = true })
+  assert.ok(nextCalled, 'middleware calls next()')
+  // Body chunk arrives, but the request stream never reaches 'end' — the
+  // route already responded (the W11 audit race: JSON body + early 302).
+  req.emit('data', Buffer.from('{"search":"x"}'))
+  res.emit('finish')
+  assert.strictEqual(req.sentinelx.rawBody, '{"search":"x"}')
+  assert.strictEqual(req.sentinelx.bodyTruncated, false)
+})
+
+test('finish with zero captured chunks keeps the body omitted', async () => {
+  const { EventEmitter } = require('node:events')
+  const req = new EventEmitter()
+  req.method = 'POST'
+  req.originalUrl = '/W16-race-empty'
+  req.url = req.originalUrl
+  req.headers = { 'content-type': 'application/json' }
+  req.on = EventEmitter.prototype.on.bind(req)
+  const res = new EventEmitter()
+  res.on = EventEmitter.prototype.on.bind(res)
+  logger(req, res, () => {})
+  res.emit('finish')
+  assert.strictEqual(req.sentinelx.rawBody, undefined)
+})

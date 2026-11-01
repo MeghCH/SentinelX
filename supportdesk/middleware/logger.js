@@ -205,10 +205,19 @@ function logger (req, res, next) {
       chunks.push(chunk)
       size += chunk.length
     })
-    req.on('end', () => {
-      ctx.rawBody = Buffer.concat(chunks).toString('utf8')
-      ctx.bodyTruncated = truncated
-    })
+    // Idempotent finalizer: 'end' fires when the stream is fully consumed,
+    // but a route that responds WITHOUT reading the body (e.g. a JSON body
+    // that express.urlencoded never parses) ends the response first. The
+    // finish path then finalizes from the chunks captured so far, so the
+    // body is still logged instead of being silently dropped.
+    const finalizeBody = () => {
+      if (ctx.rawBody === undefined && chunks.length > 0) {
+        ctx.rawBody = Buffer.concat(chunks).toString('utf8')
+        ctx.bodyTruncated = truncated
+      }
+    }
+    req.on('end', finalizeBody)
+    ctx.finalizeBody = finalizeBody
   }
   req.sentinelx = ctx
   res.on('finish', () => emitFinished(req, res))
@@ -231,6 +240,9 @@ function sessionUser (req) {
 function emitFinished (req, res) {
   try {
     const ctx = req.sentinelx || (req.sentinelx = { event: {}, user: {}, target: {} })
+    // Early responses may win the race against request 'end': make sure any
+    // partially captured body is materialized before the event is built.
+    if (typeof ctx.finalizeBody === 'function') ctx.finalizeBody()
     // One trailing slash must not bypass the exact-path exclusions.
     const normalizedPath = ctx.path && ctx.path.length > 1 && ctx.path.endsWith('/')
       ? ctx.path.slice(0, -1)
