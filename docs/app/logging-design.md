@@ -2,7 +2,7 @@
 
 **Branch:** `feat/W01-supportdesk-logging` (basis: `dev`) — 2026-10-21
 **Status:** implemented + tested; the points marked "to validate" are proposals to be folded into the contract (v0.3.1) by the team.
-**Suite:** `npm test` in `supportdesk/` — 20 tests `node --test`, zero extra dependency.
+**Suite:** `npm test` in `supportdesk/` — 39 tests `node --test`, zero extra dependency.
 
 ## What is implemented
 
@@ -43,8 +43,10 @@ The middleware is mounted **first** (before `express.urlencoded`, static, sessio
 ## Test coverage
 
 - 7 unit tests: sanitization (masking, single decoding, forbidden keys, truncation, empty) + nested key shape/no url/one type per field.
-- 13 integration tests: whole chain (login fail/success, dashboard, tickets listing, SQLi GET+POST, IDOR export, traversal kb_view, admin+SSRF+403, comment, 404 scan, unauthenticated, logout, /metrics excluded, JSON-lines integrity).
-- Functional coverage of §7 endpoints: 14/15 exercised by this suite (the `/metrics` endpoint arrives next wave with the middlewares of Prometheus metrics).
+- 13 logging integration tests: whole chain (login fail/success, dashboard, tickets listing, SQLi GET+POST, IDOR export, traversal kb_view, admin+SSRF+403, comment, 404 scan, unauthenticated, logout, /metrics excluded, JSON-lines integrity).
+- 8 endpoint tests: `GET /login` (logged out and logged in), unauthenticated `GET /dashboard` (+ anonymous log), `GET/POST /profile` (redirect, 200, persisted update), `GET /kb`, `GET /kb/view` (missing and valid doc).
+- 9 metrics tests and 2 healthz tests round out the suite.
+- Functional coverage of §7 endpoints: 17/17 exercised by this suite (39 tests total). Re-verify with `cd supportdesk && npm test`.
 
 ## Limitations known (documented)
 - Synchronous `appendFileSync` writing: acceptable for the lab + deterministic tests, to revisit in step 3 (load) if perf requires it.
