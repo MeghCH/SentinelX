@@ -2,7 +2,7 @@
 
 **Branch:** `feat/W01-supportdesk-logging` (basis: `dev`) — 2026-10-21
 **Status:** implemented + tested; the points marked "to validate" are proposals to be folded into the contract (v0.3.1) by the team.
-**Suite:** `npm test` in `supportdesk/` — 39 tests `node --test`, zero extra dependency.
+**Suite:** `npm test` in `supportdesk/` — 44 tests `node --test`, zero extra dependency.
 
 ## What is implemented
 
@@ -13,6 +13,11 @@
 - §4.1 sanitization: `password/pass/pwd/token/secret/session` keys masked with `***`, `cookie`/`authorization` keys removed, single `+`/`%XX` decoding, total field truncation at 512 characters with `[truncated]` marker.
 - §4.3: the export/detail/comment routes stage `target.owner_id`; `target.owned_by_user` (string `true`/`false`) is computed at emission.
 - 500: the global handler emits a `system` / `internal_error` / `error` event (single line guaranteed).
+
+### Body masking and capture cap (W11)
+- Content-type dispatch at emission: `application/x-www-form-urlencoded` (or an absent type) keeps the raw `sanitizePairs` path, so detection payloads stay byte-for-byte unchanged; `application/json` is parsed safely, `password/pass/pwd/token/secret/session` and `cookie/authorization` values become `***` at any depth (arrays included), unparseable JSON becomes `[unparseable json body]`; any other type becomes `[body omitted: <content-type>]`.
+- Raw body capture stops at 64 KiB (before `express.urlencoded`'s own limit applies); the logged field is marked `[truncated]` after sanitization.
+- A 500 emits exactly one event: the global error handler sets `req.sentinelx.errorLogged`, so the `finish` handler skips the duplicate web event. The `internal_error` event still carries the sanitized query/body for detection.
 
 ### Mount (deviation from the skeleton comment, to validate in the contract)
 The middleware is mounted **first** (before `express.urlencoded`, static, session): only this position allows capturing the raw body before urlencoded consumes the stream; session fields remain resolvable at emission time and static/kb files remain observable.
@@ -43,10 +48,10 @@ The middleware is mounted **first** (before `express.urlencoded`, static, sessio
 ## Test coverage
 
 - 7 unit tests: sanitization (masking, single decoding, forbidden keys, truncation, empty) + nested key shape/no url/one type per field.
-- 13 logging integration tests: whole chain (login fail/success, dashboard, tickets listing, SQLi GET+POST, IDOR export, traversal kb_view, admin+SSRF+403, comment, 404 scan, unauthenticated, logout, /metrics excluded, JSON-lines integrity).
+- 18 logging integration tests: whole chain (login fail/success, dashboard, tickets listing, SQLi GET+POST, IDOR export, traversal kb_view, admin+SSRF+403, comment, 404 scan, unauthenticated, logout, /metrics excluded with optional trailing slash, JSON-lines integrity, JSON masking, 64 KiB cap, single-event 500).
 - 8 endpoint tests: `GET /login` (logged out and logged in), unauthenticated `GET /dashboard` (+ anonymous log), `GET/POST /profile` (redirect, 200, persisted update), `GET /kb`, `GET /kb/view` (missing and valid doc).
 - 9 metrics tests and 2 healthz tests round out the suite.
-- Functional coverage of §7 endpoints: 17/17 exercised by this suite (39 tests total). Re-verify with `cd supportdesk && npm test`.
+- Functional coverage of §7 endpoints: 17/17 exercised by this suite (44 tests total). Re-verify with `cd supportdesk && npm test`.
 
 ## Limitations known (documented)
 - Synchronous `appendFileSync` writing: acceptable for the lab + deterministic tests, to revisit in step 3 (load) if perf requires it.
