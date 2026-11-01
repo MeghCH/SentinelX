@@ -12,6 +12,8 @@ const { test } = require("node:test");
 // once at load time), so this file stays independent from the logging tests.
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "sentinelx-metrics-"));
 process.env.SENTINELX_LOG_FILE = path.join(TMP_DIR, "app.jsonl");
+// Isolated database too: each test file seeds its own copy (hermetic suite).
+process.env.SENTINELX_DB_PATH = path.join(TMP_DIR, "test.db");
 
 let state = null;
 

@@ -35,6 +35,7 @@ Host-published ports are exactly the ones in the table: 3000, 9090, 3001, 443, p
 | `SESSION_SECRET`             | unset in production            | Session signing secret   |
 | `LOG_LEVEL`                  | `info`                         | Application log level    |
 | `SENTINELX_LOG_FILE`         | `/var/log/sentinelx/app.jsonl` | JSONL log destination    |
+| `SENTINELX_DB_PATH`          | `supportdesk.db` (repo dir)    | SQLite database path; test files point it at an isolated copy |
 | `PROMETHEUS_TARGET`          | `supportdesk:3000`             | Prometheus scrape target |
 | `PROMETHEUS_SCRAPE_INTERVAL` | `15s`                          | Scrape interval          |
 

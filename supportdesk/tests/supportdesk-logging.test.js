@@ -11,6 +11,8 @@ const { test } = require('node:test')
 // Isolated log file, set BEFORE requiring the app (module constant).
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinelx-log-'))
 process.env.SENTINELX_LOG_FILE = path.join(TMP_DIR, 'app.jsonl')
+// Isolated database too: each test file seeds its own copy (hermetic suite).
+process.env.SENTINELX_DB_PATH = path.join(TMP_DIR, 'test.db')
 
 const logger = require('../middleware/logger')
 const { sanitizePairs, buildEvent } = logger

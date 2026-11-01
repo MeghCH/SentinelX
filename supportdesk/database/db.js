@@ -1,7 +1,9 @@
 const Database = require('better-sqlite3')
 const path = require('path')
 
-const db = new Database(path.join(__dirname, '..', 'supportdesk.db'))
+// SENTINELX_DB_PATH lets test files (and any embedded run) point the app at
+// an isolated database instead of the shared supportdesk.db working copy.
+const db = new Database(process.env.SENTINELX_DB_PATH || path.join(__dirname, '..', 'supportdesk.db'))
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
