@@ -34,7 +34,7 @@
 | 11 | GET | `/profile` | Yes | 200 (page); 302 → `/login` if not logged in | Yes | code |
 | 12 | POST | `/profile` | Yes | 302 → `/profile`; 302 → `/login` if not logged in | Yes | code |
 | 13 | GET | `/admin` | Yes + Admin | 200 (user list); 403 "Accès refusé" if non-admin; 302 → `/login` if not logged in | Yes | tested |
-| 14 | POST | `/admin/fetch` | Yes + Admin | 200 (page with result or "Error: ..."); 403 if non-admin; 302 → `/login` if not logged in | Yes | tested (with a local URL) |
+| 14 | POST | `/admin/fetch` | Yes + Admin | 200 (page with result or "Erreur : ..."); 403 if non-admin; 302 → `/login` if not logged in | Yes | tested (with a local URL) |
 | 15 | GET | `/kb` | Yes | **301 → `/kb/` (static, before auth)**; then 302 → `/login` if not logged in (tested); 200 when logged in | Yes | tested (301 + 302) |
 | 16 | GET | `/kb/view?doc=` | Yes | 302 → `/login` if not logged in (auth runs first, tested); 400 "Missing doc parameter" if `doc` is missing; 400 "Invalid doc parameter" if `doc` is repeated/invalid (non-string); 404 "Document not found"; 200 with a real file | Yes | tested (302 / 400 / 404 / 200) |
 | 17 | GET | `/metrics` | — | 200 — Prometheus exposition per contract §6, exact content type `text/plain; version=0.0.4; charset=utf-8` | Yes | **tested (200, live since W3-01)** |
@@ -70,7 +70,7 @@
 ### Administration
 
 * **GET `/admin`**: Admin panel with the list of users (id, name, email, role). Requires `isAuthenticated` and `isAdmin`. Not logged in: 302 to `/login`. Logged in without the admin role: 403 "Accès refusé".
-* **POST `/admin/fetch`**: Uses the `url` field. The **server** downloads the given URL and displays the content. In case of an error, the page renders with "Error: ..." (status 200).
+* **POST `/admin/fetch`**: Uses the `url` field. The **server** downloads the given URL and displays the content. In case of an error, the page renders with "Erreur : ..." (status 200).
 
 ### Knowledge Base
 
@@ -88,7 +88,7 @@
 ## 4. Discrepancies with the Contract
 
 * `POST /tickets/:id/comment`, `GET /profile` and `POST /profile` exist in the app AND are listed in §7 (verified) — the contract covers them for testing.
-* `/healthz` EXISTS (merged `feat/H03-healthz`, suite 31/31): 200 `{status, version, uptime_s, db}` anonymous, 503 if the DB is down. The contract §7 now lists it (v0.3.1).
+* `/healthz` EXISTS (merged `feat/H03-healthz`, suite 39/39): 200 `{status, version, uptime_s, db}` anonymous, 503 if the DB is down. The contract §7 now lists it (v0.3.1).
 * Default port: 3000 (`app.js`), 3000 in the contract (§2) — in line; Docker sets `PORT=3000` explicitly.
 * `sentinel-app:8080` (old Trello wording) vs `supportdesk:3000`: resolved — the contract, the compose files and the Prometheus scrape (W3-02) all use `supportdesk:3000`.
 
