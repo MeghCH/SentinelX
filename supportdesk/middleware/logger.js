@@ -22,6 +22,9 @@ const SERVICE_VERSION = process.env.SENTINELX_VERSION || '1.0.0'
 const LOG_FILE = process.env.SENTINELX_LOG_FILE || '/var/log/sentinelx/app.jsonl'
 const FIELD_LIMIT = 512
 const TRUNCATED = '[truncated]'
+// Raw bodies are buffered before express.urlencoded's own limit applies: cap
+// the capture so a large POST cannot grow memory without bound.
+const BODY_CAP = 64 * 1024
 
 // §4.1: values of sensitive keys are replaced with `***`;
 // cookies and the Authorization header are never logged at all.
@@ -101,6 +104,50 @@ function sanitizePairs (raw) {
   return log
 }
 
+function truncateField (s) {
+  if (s.length > FIELD_LIMIT) return s.slice(0, FIELD_LIMIT - TRUNCATED.length) + TRUNCATED
+  return s
+}
+
+// JSON is not `key=value`: mask sensitive keys recursively (arrays included)
+// so a password nested in an object is still replaced with `***`.
+function maskJson (value) {
+  if (Array.isArray(value)) return value.map(maskJson)
+  if (value && typeof value === 'object') {
+    const out = {}
+    for (const [key, val] of Object.entries(value)) {
+      out[key] = (MASKED_KEYS.test(key) || FORBIDDEN_KEYS.test(key)) ? '***' : maskJson(val)
+    }
+    return out
+  }
+  return value
+}
+
+// Content-type dispatch. urlencoded (and an absent type) keeps the historical
+// sanitizePairs path: detection rules match those raw payloads byte-for-byte.
+function sanitizeBody (raw, contentType, truncated) {
+  if (!raw || typeof raw !== 'string' || raw.length === 0) return undefined
+  let log
+  if (!contentType || contentType === 'application/x-www-form-urlencoded') {
+    log = sanitizePairs(raw)
+  } else if (contentType === 'application/json' || contentType.endsWith('+json')) {
+    try {
+      const parsed = JSON.parse(raw)
+      log = parsed && typeof parsed === 'object'
+        ? truncateField(JSON.stringify(maskJson(parsed)))
+        : '[unparseable json body]'
+    } catch (_) {
+      // Never fall back to the raw string: it may carry secrets.
+      log = '[unparseable json body]'
+    }
+  } else {
+    log = `[body omitted: ${contentType}]`
+  }
+  if (log === undefined) return undefined
+  if (truncated && !log.endsWith(TRUNCATED)) log = truncateField(log + TRUNCATED)
+  return log
+}
+
 function defaultStatusMessage (status) {
   if (status === 404) return 'Not found'
   if (status === 403) return 'Access refused (admin only)'
@@ -138,12 +185,30 @@ function logger (req, res, next) {
   const qi = rawUrl.indexOf('?')
   ctx.path = qi === -1 ? rawUrl : rawUrl.slice(0, qi)
   ctx.rawQuery = qi === -1 ? undefined : rawUrl.slice(qi + 1)
+  // Captured at mount time: the raw body is parsed later at emit time.
+  ctx.contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
   // Raw body capture: listeners are attached before express.urlencoded
   // consumes the stream, so urlencoded still parses req.body for the routes.
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     const chunks = []
-    req.on('data', chunk => chunks.push(chunk))
-    req.on('end', () => { ctx.rawBody = Buffer.concat(chunks).toString('utf8') })
+    let size = 0
+    let truncated = false
+    req.on('data', chunk => {
+      if (truncated) return
+      const room = BODY_CAP - size
+      if (chunk.length >= room) {
+        chunks.push(chunk.slice(0, room))
+        size += room
+        truncated = true
+        return
+      }
+      chunks.push(chunk)
+      size += chunk.length
+    })
+    req.on('end', () => {
+      ctx.rawBody = Buffer.concat(chunks).toString('utf8')
+      ctx.bodyTruncated = truncated
+    })
   }
   req.sentinelx = ctx
   res.on('finish', () => emitFinished(req, res))
@@ -166,7 +231,14 @@ function sessionUser (req) {
 function emitFinished (req, res) {
   try {
     const ctx = req.sentinelx || (req.sentinelx = { event: {}, user: {}, target: {} })
-    if (ctx.path === '/metrics') return // Prometheus scrape: not logged (noise)
+    // One trailing slash must not bypass the exact-path exclusions.
+    const normalizedPath = ctx.path && ctx.path.length > 1 && ctx.path.endsWith('/')
+      ? ctx.path.slice(0, -1)
+      : ctx.path
+    if (normalizedPath === '/metrics') return // Prometheus scrape: not logged (noise)
+    // The global error handler already wrote system/internal_error for this
+    // request: do not emit a second, misleading web event at status 500.
+    if (ctx.errorLogged) return
     const status = res.statusCode
     const staged = ctx.event || {}
     const user = Object.keys(ctx.user || {}).length ? { ...ctx.user } : sessionUser(req)
@@ -202,7 +274,7 @@ function emitFinished (req, res) {
       'http.request.method': req.method,
       'http.request.path': ctx.path,
       'http.request.query': sanitizePairs(ctx.rawQuery),
-      'http.request.body': sanitizePairs(bodyRaw),
+      'http.request.body': sanitizeBody(bodyRaw, ctx.contentType, ctx.bodyTruncated),
       'http.response.status_code': status,
       'http.response.duration_ms': Math.round(durationMs * 10) / 10,
       'source.ip': req.ip,
@@ -226,6 +298,8 @@ function emitFinished (req, res) {
 function emitError (req, err) {
   try {
     const ctx = req.sentinelx || (req.sentinelx = { event: {}, user: {}, target: {} })
+    // Consumed by emitFinished: a 500 must produce exactly one event.
+    ctx.errorLogged = true
     let message = err && err.message ? String(err.message) : 'Internal error'
     message = message.replace(/[\r\n]+/g, ' ')
     if (message.length > FIELD_LIMIT) message = message.slice(0, FIELD_LIMIT - TRUNCATED.length) + TRUNCATED
@@ -243,6 +317,10 @@ function emitError (req, err) {
       'trace.id': ctx.traceId,
       'http.request.method': req.method,
       'http.request.path': ctx.path,
+      // Keep the request context on the single error event: detection rules
+      // still need the query/body payload that caused the 500.
+      'http.request.query': sanitizePairs(ctx.rawQuery),
+      'http.request.body': sanitizeBody(ctx.rawBody, ctx.contentType, ctx.bodyTruncated),
       'http.response.status_code': 500,
       'source.ip': req.ip,
       'user.id': user.id,

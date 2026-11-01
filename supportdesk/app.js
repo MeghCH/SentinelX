@@ -105,6 +105,7 @@ app.get("/dashboard", isAuthenticated, (req, res) => {
 
 // Global error handler -- emits an internal_error event (CONTRACT.md §5)
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
   emitError(req, err);
   res.status(500).send("Internal server error");
 });
