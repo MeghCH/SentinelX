@@ -118,18 +118,20 @@ router.get('/:id', isAuthenticated, (req, res) => {
 })
 
 router.post('/:id/comment', isAuthenticated, (req, res) => {
+  const owner = db.prepare('SELECT created_by FROM tickets WHERE id = ?').get(req.params.id)
+  if (!owner) return res.status(404).send('Ticket not found')
   const { content } = req.body
+  if (typeof content !== 'string' || content.trim() === '') {
+    return res.status(400).send('Missing content')
+  }
   const now = new Date().toISOString()
   db.prepare(
     'INSERT INTO comments (ticket_id, author_id, content, created_at) VALUES (?, ?, ?, ?)'
   ).run(req.params.id, req.session.userId, content, now)
-  const owner = db.prepare('SELECT created_by FROM tickets WHERE id = ?').get(req.params.id)
-  if (owner) {
-    stage(req, {
-      message: 'Comment added',
-      target: { type: 'ticket', id: String(req.params.id), ownerId: String(owner.created_by) }
-    })
-  }
+  stage(req, {
+    message: 'Comment added',
+    target: { type: 'ticket', id: String(req.params.id), ownerId: String(owner.created_by) }
+  })
   res.redirect('/tickets/' + req.params.id)
 })
 
