@@ -1,5 +1,13 @@
 const assert = require('node:assert')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
 const { test } = require('node:test')
+
+// Isolated log file, set BEFORE requiring the app (the logger otherwise
+// defaults to /var/log/sentinelx, unwritable on a non-root CI runner).
+const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinelx-healthz-'))
+process.env.SENTINELX_LOG_FILE = path.join(TMP_DIR, 'app.jsonl')
 
 let state = null
 
