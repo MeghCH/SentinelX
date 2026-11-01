@@ -26,7 +26,7 @@ include:
 
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.0
     restart: unless-stopped
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -39,7 +39,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.3.0
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER:-admin}
