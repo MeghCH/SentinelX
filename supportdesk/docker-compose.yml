@@ -19,7 +19,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - SESSION_SECRET=dev-secret-change-in-prod
+      - SESSION_SECRET=${SESSION_SECRET:-dev-secret-change-in-prod}
       - PORT=3000
       - LOG_LEVEL=info
       - SENTINELX_LOG_FILE=/var/log/sentinelx/app.jsonl
