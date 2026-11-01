@@ -102,7 +102,7 @@ Attack payloads (SQL injection, path traversal, SSRF, stored XSS) travel in quer
 
 Sanitization rules, applied before writing the log:
 
-1. The value of any key matching (case-insensitive) `password`, `pass`, `pwd`, `token`, `secret`, `session`, `cookie` or `authorization` is replaced with `***`.
+1. The value of any key matching (case-insensitive) `password`, `pass`, `pwd`, `token`, `secret` or `session` is replaced with `***`. Keys matching `cookie` or `authorization` are dropped entirely from the logged body (the pair is removed, not masked): their values must never appear, even masked, in the application log.
 2. Each field is truncated to 512 characters; a truncated value ends with `[truncated]`.
 3. Fields are omitted when the request has no query string or no body.
 4. Cookies and the `Authorization` header are never logged.

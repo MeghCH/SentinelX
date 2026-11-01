@@ -145,8 +145,30 @@ les runbooks :
 | Path traversal (curl, fuite `/etc/passwd`) | ✅ alertes 100140/100141 | RB-02     |
 | Injection SQL (sqlmap, dump de la base)    | ✅ alertes 100120/100121 | RB-03     |
 
-La chaîne détecte donc les attaques (vrais positifs confirmés) **sans** générer d'alerte sur du
-trafic légitime (0 faux positif). Les seuils sont validés par ce double résultat.
+### Qualification alerte par alerte (rejeu RB-04, source : rapport d'incident 2026-10-30)
+
+Chaque alerte produite par le scénario de démonstration est classée individuellement. Le décompte
+de référence est **9 × 100110 + 1 × 100111 + 1 × 100121 = 11 alertes**, toutes des vrais positifs :
+
+| #    | Règle  | Niveau | Événement déclencheur                                  | Classification | Justification                                                                                      |
+| ---- | ------ | ------ | ------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------- |
+| 1-9  | 100110 | 3      | échec de login unitaire (`password=WRONG_x`)           | **TP**         | chaque tentative hydra est un échec d'authentification réel, correctement qualifié au niveau 3      |
+| 10   | 100111 | 10     | corrélation 5 échecs / 60 s / même `source.ip`         | **TP**         | la 5e tentative d'une même source dans la fenêtre est la définition exacte du brute force détecté   |
+| 11   | 100121 | 10     | SQLi authentifiée `' OR '1'='1` sur `/tickets/search`  | **TP**         | payload d'injection réel exécuté (HTTP 200, dump possible), détecté dans le corps décodé           |
+
+La colonne « classification » vaut TP (vrai positif) : chaque alerte correspond à une action
+d'attaque réellement exécutée dans le scénario. Aucune alerte de la fenêtre RB-04 n'est classée
+FP : le scénario ne produit pas non plus d'alerte parasite (0 alerte non prévue).
+
+### Qualification alerte par alerte (fenêtres de faux positifs)
+
+Fenêtres de trafic normal (§3) : **0 alerte custom sur 1062 requêtes** — la table par alerte est
+vide : rien à classer. La variante calibration `--typos N` produit exactement N alertes 100110,
+chacune **attendue et documentée** (échec de frappe réel de l'utilisateur simulé, sous le seuil de
+corrélation) : elles servent de référence de calibration du seuil 100111, pas de la détection.
+
+La chaîne détecte donc les attaques (vrais positifs confirmés, 11/11 en RB-04) **sans** générer
+d'alerte sur du trafic légitime (0 faux positif). Les seuils sont validés par ce double résultat.
 
 ---
 

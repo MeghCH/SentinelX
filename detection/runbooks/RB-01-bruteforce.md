@@ -88,7 +88,7 @@ Dashboard : Threat Hunting -> Events -> `rule.id:100111`.
 | A - parallèle (10 tâches) | ~1 s (16:04:16 -> 16:04:17) | 1 -> 3                          | **+2** |
 | B - séquentiel (`-t 1`)   | ~3 s (16:05:49 -> 16:05:52) | 3 -> 4                          | **+1** |
 
-- Les 10 tentatives ont généré des alertes **100110** (échec unitaire, niveau 3) pour chaque essai, puis des alertes **100111** (brute force, niveau 10) par paliers de corrélation.
+- Les 10 tentatives ont généré **9 × 100110** (échec unitaire, niveau 3) et **1 × 100111** (brute force, niveau 10) : la 5e tentative satisfait la corrélation `frequency=5/60 s`, et l'occurrence corrélée produit l'alerte 100111 au lieu de ré-émettre 100110 (comptage aligné sur RB-04 §8 et le rapport d'incident).
 - hydra n'a trouvé aucun mot de passe valide (`0 valid password found`) : l'attaque échoue fonctionnellement, mais **est bien détectée**.
 - Aucun `X-Forwarded-For` n'étant envoyé par hydra, toutes les requêtes portent l'IP du bridge Docker : du point de vue de la corrélation, elles proviennent de la même source (ce qui ici **favorise** la détection), mais la véritable IP de l'attaquant n'apparaît pas.
 

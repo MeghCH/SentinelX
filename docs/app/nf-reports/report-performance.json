@@ -1,39 +1,39 @@
 {
-  "started": "2026-10-30T11:29:05.400Z",
-  "finished": "2026-10-30T11:29:05.400Z",
-  "base": "http://127.0.0.1:4612",
+  "started": "2026-11-01T20:56:31.534Z",
+  "finished": "2026-11-01T20:57:01.545Z",
+  "base": "http://192.168.1.214:3000",
   "duration_s": 30,
   "concurrency": 10,
-  "requests_total": 59048,
+  "requests_total": 51656,
   "byEndpoint": {
-    "GET /tickets": 11370,
-    "GET /profile": 2791,
-    "GET /tickets/:id": 8419,
-    "GET /login": 8424,
-    "GET /": 2854,
-    "GET /dashboard": 11056,
-    "POST /tickets/search": 2925,
-    "GET /healthz": 2872,
-    "GET /kb": 2775,
-    "GET /metrics": 2775,
-    "GET /kb/view": 2787
+    "GET /dashboard": 9848,
+    "GET /healthz": 2473,
+    "GET /login": 7280,
+    "GET /": 2481,
+    "GET /kb": 2459,
+    "GET /tickets/:id": 7227,
+    "GET /tickets": 10145,
+    "GET /profile": 2448,
+    "POST /tickets/search": 2411,
+    "GET /metrics": 2434,
+    "GET /kb/view": 2450
   },
   "statuses": {
-    "200": 44995,
-    "301": 2775,
-    "302": 11278
+    "200": 39436,
+    "301": 2459,
+    "302": 9761
   },
   "errors": 0,
   "error_rate_pct": 0,
-  "throughput_reqps": 1968.3,
+  "throughput_reqps": 1721.9,
   "latency_ms": {
-    "p50": 5,
+    "p50": 6,
     "p90": 7,
     "p95": 8,
-    "p99": 11,
+    "p99": 10,
     "min": 1,
-    "max": 26,
-    "mean": 5.1
+    "max": 19,
+    "mean": 5.8
   },
   "thresholds": {
     "max_error_rate_pct": 0.5,

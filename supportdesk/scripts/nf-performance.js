@@ -71,6 +71,7 @@ async function workerCookie () {
 async function main () {
   if (fs.existsSync(OPTS.out || req())) { /* keep overwriting reports: each run is a session */ }
 
+  const startedAt = new Date().toISOString(); // actual window start, before any request
   const deadline = Date.now() + OPTS.duration * 1000;
   const workers = Array.from({ length: OPTS.concurrency }, (_, i) => runWorker(i, deadline));
   const stats = (await Promise.all(workers)).reduce(
@@ -88,8 +89,8 @@ async function main () {
   const errorRate = stats.requests ? (100 * errors / stats.requests) : 0;
 
   const report = {
-    started: new Date().toISOString(),
-    finished: new Date().toISOString(),
+    started: startedAt,
+    finished: new Date().toISOString(), // after the load window closed
     base: OPTS.base,
     duration_s: OPTS.duration,
     concurrency: OPTS.concurrency,

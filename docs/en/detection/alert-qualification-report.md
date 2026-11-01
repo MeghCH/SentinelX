@@ -112,7 +112,29 @@ The counterpart of this measurement is the effective detection of real attacks, 
 | Path traversal (curl, `/etc/passwd` leak) | ✅ alerts 100140/100141 | RB-02     |
 | SQL injection (sqlmap, database dump)     | ✅ alerts 100120/100121 | RB-03     |
 
-The chain therefore detects the attacks (confirmed true positives) **without** generating an alert on legitimate traffic (0 false positives). The thresholds are validated by this double result.
+### Per-alert qualification (RB-04 replay, source: incident report 2026-10-30)
+
+Every alert produced by the demo scenario is classified individually. The reference count is
+**9 × 100110 + 1 × 100111 + 1 × 100121 = 11 alerts**, all true positives:
+
+| #    | Rule   | Level | Triggering event                                        | Classification | Justification                                                                                          |
+| ---- | ------ | ----- | -------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
+| 1-9  | 100110 | 3     | individual login failure (`password=WRONG_x`)            | **TP**         | each hydra attempt is a real authentication failure, correctly qualified at level 3                     |
+| 10   | 100111 | 10    | correlation 5 failures / 60 s / same `source.ip`         | **TP**         | the 5th attempt from one source inside the window is exactly the definition of detected brute force     |
+| 11   | 100121 | 10    | authenticated SQLi `' OR '1'='1` on `/tickets/search`    | **TP**         | real injection payload executed (HTTP 200, dump possible), detected in the decoded body                 |
+
+The classification column reads TP (true positive): every alert maps to an attack action actually
+executed in the scenario. No alert of the RB-04 window is classified FP: the scenario also produces
+no spurious alert (0 unexpected alerts).
+
+### Per-alert qualification (false-positive windows)
+
+Normal-traffic windows (§3): **0 custom alerts over 1062 requests** — the per-alert table is empty:
+there is nothing to classify. The `--typos N` calibration variant produces exactly N 100110 alerts,
+each **expected and documented** (a real typo failure by the simulated user, below the correlation
+threshold): they are the calibration reference for the 100111 threshold, not a detection failure.
+
+The chain therefore detects the attacks (confirmed true positives, 11/11 in RB-04) **without** generating an alert on legitimate traffic (0 false positives). The thresholds are validated by this double result.
 
 ---
 
