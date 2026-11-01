@@ -136,12 +136,11 @@ test('GET /kb lists the knowledge base articles for an authenticated user', asyn
   assert.match(await res.text(), /password-policy\.html/)
 })
 
-test('GET /kb/view without doc param returns 500 (path.join on undefined)', async () => {
-  // Observed behavior: routes/kb.js:32 calls path.join() outside its try block,
-  // so the missing doc throws and the global error handler answers 500.
+test('GET /kb/view without doc param returns 400', async () => {
+  // Missing doc is a client error: the route validates it before path.join().
   const res = await request('/kb/view', { cookie: state.adminCookie, manual: true })
-  assert.strictEqual(res.status, 500)
-  assert.strictEqual(await res.text(), 'Internal server error')
+  assert.strictEqual(res.status, 400)
+  assert.strictEqual(await res.text(), 'Missing doc parameter')
 })
 
 test('GET /kb/view with a valid doc renders the article', async () => {

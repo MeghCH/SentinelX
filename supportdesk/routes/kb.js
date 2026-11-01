@@ -22,6 +22,9 @@ router.get('/', isAuthenticated, (req, res) => {
 
 router.get('/view', isAuthenticated, (req, res) => {
   const { doc } = req.query
+  if (!doc) {
+    return res.status(400).send('Missing doc parameter')
+  }
   // target.id carries the raw doc value: rule 100140 matches
   // http.request.query AND target.id -- both must see the payload
   stage(req, {
