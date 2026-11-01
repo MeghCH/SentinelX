@@ -36,3 +36,5 @@ The repository keeps its original French documentation and provides the same doc
 | Monitoring — Prometheus config            | [monitoring/README.md](../../monitoring/README.md)  | [docs/en/monitoring/prometheus-configuration.md](monitoring/prometheus-configuration.md) |
 | Monitoring — consolidated stack           | [docs/app/monitoring-stack.md](../app/monitoring-stack.md) | [docs/en/app/monitoring-stack.md](app/monitoring-stack.md)     |
 | Non-functional tests                      | [docs/app/nonfunctional-tests.md](../app/nonfunctional-tests.md) | [docs/en/app/nonfunctional-tests.md](app/nonfunctional-tests.md) |
+
+> The root [README.md](../../README.md) is French only; this page is the English entry point and links the English docs above.
