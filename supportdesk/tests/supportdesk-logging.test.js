@@ -282,14 +282,16 @@ test('chain: a body above the 64KiB capture cap is truncated, no crash', async (
 })
 
 test('chain: a 500 emits only the internal_error event', async () => {
-  // A missing comment body binds `undefined` -> better-sqlite3 throws inside
-  // the route -> global error handler -> 500.
-  const path = '/tickets/3/comment'
+  // The legitimate search term with an apostrophe breaks the deliberately
+  // injectable SQL (AP-03/D-05) -> 500 + internal_error event. (W14 turned the
+  // former missing-comment 500 into 400/404, so this is the remaining real 500.)
+  const path = '/tickets/search'
   const n500 = () => events().filter(e => e.http && e.http.request.path === path &&
     e.http.response && e.http.response.status_code === 500).length
   const before = n500()
   const res = await request(path, {
     method: 'POST',
+    body: 'search=' + encodeURIComponent("probleme d'impression"),
     cookie: state.adminCookie,
     manual: true
   })
