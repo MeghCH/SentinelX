@@ -123,10 +123,10 @@ async function poll (predicate, attempts = 60, delayMs = 25) {
 const lastActionEvent = action => poll(e => e.event && e.event.action === action)
 const lastPathEvent = p => poll(e => e.http && e.http.request.path === p)
 
-async function request (url, { method = 'GET', body = null, cookie = null, manual = false } = {}) {
+async function request (url, { method = 'GET', body = null, cookie = null, manual = false, contentType = null } = {}) {
   const headers = {}
   if (cookie) headers.cookie = cookie
-  if (body) headers['content-type'] = 'application/x-www-form-urlencoded'
+  if (body) headers['content-type'] = contentType || 'application/x-www-form-urlencoded'
   return fetch(state.base + url, { method, headers, body, redirect: manual ? 'manual' : 'follow' })
 }
 
@@ -201,6 +201,105 @@ test('chain: SQLi payloads stay readable for detection rules', async () => {
     e.http && e.http.request.body === "search=xyz' OR '1'='1")
   assert.ok(ev, 'POST /tickets/search tautology logged')
   assert.strictEqual(ev.event.outcome, 'success')
+})
+
+test('chain: JSON bodies mask secrets while urlencoded payloads stay raw', async () => {
+  const json = JSON.stringify({
+    search: 'x',
+    password: 'SuperSecret123',
+    nested: { token: 'TOPSECRET', list: [{ secret: 'deeeeep' }] }
+  })
+  const res = await request('/W11-json-probe', {
+    method: 'POST',
+    body: json,
+    contentType: 'application/json'
+  })
+  assert.strictEqual(res.status, 404)
+  const ev = await poll(e => e.http && e.http.request.path === '/W11-json-probe')
+  assert.ok(ev, 'JSON probe logged')
+  const logged = ev.http.request.body
+  assert.ok(!logged.includes('SuperSecret123'), 'password value masked')
+  assert.ok(!logged.includes('TOPSECRET'), 'nested token value masked')
+  assert.ok(!logged.includes('deeeeep'), 'token in array masked')
+  assert.match(logged, /"password":"\*\*\*"/)
+  assert.match(logged, /"search":"x"/)
+
+  // Unparseable JSON is replaced by a placeholder, never the raw string.
+  const bad = await request('/W11-badjson-probe', {
+    method: 'POST',
+    body: '{"password":"SuperSecret123"',
+    contentType: 'application/json'
+  })
+  assert.strictEqual(bad.status, 404)
+  const badEv = await poll(e => e.http && e.http.request.path === '/W11-badjson-probe')
+  assert.strictEqual(badEv.http.request.body, '[unparseable json body]')
+
+  // Unknown content types never log their raw body.
+  const text = await request('/W11-text-probe', {
+    method: 'POST',
+    body: 'password=SuperSecret123',
+    contentType: 'text/plain'
+  })
+  assert.strictEqual(text.status, 404)
+  const textEv = await poll(e => e.http && e.http.request.path === '/W11-text-probe')
+  assert.strictEqual(textEv.http.request.body, '[body omitted: text/plain]')
+
+  // Detection semantics: urlencoded SQLi payload stays byte-for-byte raw.
+  await request('/tickets/search', {
+    method: 'POST',
+    body: 'search=' + encodeURIComponent("xyz' OR '1'='1"),
+    cookie: state.adminCookie
+  })
+  const sqli = await poll(e => e.event && e.event.action === 'search' &&
+    e.http && e.http.request.body === "search=xyz' OR '1'='1")
+  assert.ok(sqli, 'urlencoded SQLi payload still raw')
+})
+
+test('chain: JSON forbidden keys are masked at any depth too', async () => {
+  const res = await request('/W11-json-forbidden-probe', {
+    method: 'POST',
+    body: JSON.stringify({ headers: { Cookie: 'SESSIONVALUE', authorization: 'Bearer XYZ' } }),
+    contentType: 'application/json'
+  })
+  assert.strictEqual(res.status, 404)
+  const ev = await poll(e => e.http && e.http.request.path === '/W11-json-forbidden-probe')
+  assert.ok(!ev.http.request.body.includes('SESSIONVALUE'))
+  assert.ok(!ev.http.request.body.includes('Bearer XYZ'))
+  assert.match(ev.http.request.body, /"Cookie":"\*\*\*"/)
+  assert.match(ev.http.request.body, /"authorization":"\*\*\*"/)
+})
+
+test('chain: a body above the 64KiB capture cap is truncated, no crash', async () => {
+  const res = await request('/W11-big-probe', {
+    method: 'POST',
+    body: 'search=' + 'a'.repeat(70 * 1024)
+  })
+  assert.strictEqual(res.status, 404)
+  const ev = await poll(e => e.http && e.http.request.path === '/W11-big-probe')
+  assert.ok(ev, 'oversized body logged')
+  assert.ok(ev.http.request.body.length < 65 * 1024, `captured length ${ev.http.request.body.length}`)
+  assert.ok(ev.http.request.body.endsWith('[truncated]'))
+})
+
+test('chain: a 500 emits only the internal_error event', async () => {
+  // A missing comment body binds `undefined` -> better-sqlite3 throws inside
+  // the route -> global error handler -> 500.
+  const path = '/tickets/3/comment'
+  const n500 = () => events().filter(e => e.http && e.http.request.path === path &&
+    e.http.response && e.http.response.status_code === 500).length
+  const before = n500()
+  const res = await request(path, {
+    method: 'POST',
+    cookie: state.adminCookie,
+    manual: true
+  })
+  assert.strictEqual(res.status, 500)
+  await new Promise(resolve => setTimeout(resolve, 300)) // settle: no second event
+  assert.strictEqual(n500() - before, 1, 'exactly one event for the failed request')
+  const ev = events().filter(e => e.http && e.http.request.path === path &&
+    e.http.response && e.http.response.status_code === 500).pop()
+  assert.strictEqual(ev.event.category, 'system')
+  assert.strictEqual(ev.event.action, 'internal_error')
 })
 
 test('chain: IDOR export detection fields (owner mismatch, non-admin, 200 OK)', async () => {
@@ -313,6 +412,13 @@ test('chain: /metrics is never logged (Prometheus scraping noise)', async () => 
   await request('/metrics')
   await new Promise(resolve => setTimeout(resolve, 400)) // settle: no event may appear
   assert.strictEqual(events().length, before) // no event even though the page 404s (metrics arrive at wave 2)
+})
+
+test('chain: /metrics/ (trailing slash) is never logged either', async () => {
+  const before = events().length
+  await request('/metrics/')
+  await new Promise(resolve => setTimeout(resolve, 400)) // settle: no event may appear
+  assert.strictEqual(events().length, before)
 })
 
 test('chain: every written line stays a single valid JSON line', () => {

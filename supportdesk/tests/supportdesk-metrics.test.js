@@ -144,7 +144,8 @@ test("cardinality: /tickets/<id> normalizes to /tickets/:id (no raw id as label)
   assert.ok((ex.get(totalKey("GET", "/tickets/:id", "200")) || 0) >= 1);
 });
 
-test("self-pollution: /metrics never counts itself", async () => {
+test("self-pollution: /metrics and /metrics/ never count themselves", async () => {
+  await fetch(state.base + "/metrics/"); // trailing slash must be excluded too
   const ex1 = await getMetrics();
   assert.ok(!labels(ex1).includes("/metrics"), "path=/metrics absent before scrapes");
   const before = ex1.get(totalKey("GET", "/metrics", "200")) || 0;
