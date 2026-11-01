@@ -60,12 +60,25 @@ function bump (map, key) {
 }
 
 function metrics (req, res, next) {
-  if (req.path === "/metrics") return next(); // scrape noise: excluded everywhere
+  // One trailing slash must not bypass the exact-path exclusion.
+  const path = req.path.length > 1 && req.path.endsWith("/") ? req.path.slice(0, -1) : req.path;
+  if (path === "/metrics") return next(); // scrape noise: excluded everywhere
   inFlight++;
   const start = process.hrtime.bigint();
-  res.on("finish", () => {
+  // finish and close can both fire; decrement the gauge exactly once. A client
+  // abort reaches close without finish, so the gauge never leaks.
+  let done = false;
+  const cleanup = () => {
+    if (done) return;
+    done = true;
     inFlight--;
     observe(req, res, start);
+  };
+  res.on("finish", cleanup);
+  res.on("close", () => {
+    if (done) return;
+    done = true;
+    inFlight--;
   });
   next();
 }
