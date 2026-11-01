@@ -1,5 +1,5 @@
 {
-  "started": "2026-10-30T11:28:30.642Z",
+  "started": "2026-11-01T20:13:28.838Z",
   "base": "http://127.0.0.1:4612",
   "summary": {
     "pass": 7,
@@ -19,8 +19,8 @@
     },
     {
       "kind": "PASS",
-      "id": "S3 internal error is generic, no stack trace",
-      "detail": "status 500, stack leak: false, body head: Internal server error"
+      "id": "S3 missing doc is generic 400, no stack trace",
+      "detail": "status 400, stack leak: false, body head: Missing doc parameter"
     },
     {
       "kind": "PASS",
@@ -45,7 +45,7 @@
     {
       "kind": "PASS",
       "id": "S8 /healthz is a clean anonymous healthcheck",
-      "detail": "status 200, body: {\"status\":\"ok\",\"db\":\"up\",\"uptime_s\":10,\"version\":\"1.0.0\"}"
+      "detail": "status 200, body: {\"status\":\"ok\",\"db\":\"up\",\"uptime_s\":21,\"version\":\"1.0.0\"}"
     }
   ],
   "notes": [

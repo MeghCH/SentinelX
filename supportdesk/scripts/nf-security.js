@@ -76,14 +76,15 @@ async function main () {
     "status " + failed.res.status + ", Location " + failed.res.headers.get("location"),
   );
 
-  // S3 -- generic 500: /kb/view authenticated (route crash) must not leak a stack
+  // S3 -- no stack leak on a rejected request: authenticated /kb/view with no
+  // doc now returns 400 "Missing doc parameter" (W10) and must stay generic.
   const jdup = await login("jdupont@supportdesk.local", "User_123");
-  const boom = await call("/kb/view", { cookie: jdup.cookie }); // missing doc -> path.join crash
+  const boom = await call("/kb/view", { cookie: jdup.cookie }); // missing doc -> 400
   const boomBody = await boom.text();
-  const leaked = /[aA]t\s+(?:Object|async)|\/app\/|supportdesk\\?\/|at\s+Function\./.test(boomBody);
+  const leaked = /[aA]t\s+(?:Object|async)|\/app\/|supportdesk\\?\/|at\s+Function\.|TypeError/.test(boomBody);
   record(
-    boom.status === 500 && !leaked ? "PASS" : "FAIL",
-    "S3 internal error is generic, no stack trace",
+    boom.status === 400 && !leaked ? "PASS" : "FAIL",
+    "S3 missing doc is generic 400, no stack trace",
     "status " + boom.status + ", stack leak: " + leaked + ", body head: " + boomBody.slice(0, 40),
   );
 

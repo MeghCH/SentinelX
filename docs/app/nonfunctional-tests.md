@@ -28,7 +28,7 @@ Chaque script : rapports JSON horodatés dans le cwd, verdict lisibles (`PERF_OK
 | --- | ----------------------------------------------------- | -------------- |
 | S1  | Cookie `connect.sid` est `HttpOnly`                    | PASS           |
 | S2  | Un login raté ne divulge pas le password (302 sans fuite)| PASS           |
-| S3  | Une erreur 500 (`/kb/view` sans `doc`) est générique, sans stack trace | PASS |
+| S3  | Une erreur 400 (`/kb/view` sans `doc`) est générique, sans stack trace | PASS |
 | S4  | Pages protégées visibles anonymement = 302 (jamais 200) | PASS ×5       |
 | S5  | Non-admin sur `/admin` = 403 **sans** la liste des users | PASS           |
 | S6  | `/metrics` public (contrainte scraper) **sans** PII dans les labels | PASS (D-002) |
