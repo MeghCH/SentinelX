@@ -36,7 +36,7 @@
 | 13 | GET | `/admin` | Yes + Admin | 200 (user list); 403 "Accès refusé" if non-admin; 302 → `/login` if not logged in | Yes | tested |
 | 14 | POST | `/admin/fetch` | Yes + Admin | 200 (page with result or "Error: ..."); 403 if non-admin; 302 → `/login` if not logged in | Yes | tested (with a local URL) |
 | 15 | GET | `/kb` | Yes | **301 → `/kb/` (static, before auth)**; then 302 → `/login` if not logged in (tested); 200 when logged in | Yes | tested (301 + 302) |
-| 16 | GET | `/kb/view?doc=` | Yes | 302 → `/login` if not logged in (auth runs first, tested); 404 "Document not found"; 500 if `doc` is missing; 200 with a real file | Yes | tested (302 / 500 / 200) |
+| 16 | GET | `/kb/view?doc=` | Yes | 302 → `/login` if not logged in (auth runs first, tested); 400 "Missing doc parameter" if `doc` is missing; 404 "Document not found"; 200 with a real file | Yes | tested (302 / 400 / 404 / 200) |
 | 17 | GET | `/metrics` | — | 200 — Prometheus exposition per contract §6, exact content type `text/plain; version=0.0.4; charset=utf-8` | Yes | **tested (200, live since W3-01)** |
 | 18 | GET | `/healthz` | — | 200 `{"status":"ok","db":"up",...}` JSON `{status, version, uptime_s, db}`; 503 if DB down | Yes | **tested (200, live since `feat/H03-healthz`)** |
 
@@ -75,7 +75,7 @@
 ### Knowledge Base
 
 * **GET `/kb`**: Lists `.html` files in the `public/kb` folder. **Confirmed**: `/kb` responds first with 301 → `/kb/`, even without authentication, because the `public/kb` folder is handled by the static file server prior to routes; `/kb/` itself then requires authentication (302 → `/login` if anonymous, 200 when logged in — tested).
-* **GET `/kb/view?doc=name.html`**: Reads the requested file from `public/kb` and displays it. File not found: 404 "Document not found". If the `doc` parameter is missing (when authenticated), the code crashes before the `try` block: 500 "Internal server error" (tested).
+* **GET `/kb/view?doc=name.html`**: Reads the requested file from `public/kb` and displays it. File not found: 404 "Document not found". If the `doc` parameter is missing or empty (when authenticated), the route answers 400 "Missing doc parameter" (tested).
 
 ### Static Files
 
