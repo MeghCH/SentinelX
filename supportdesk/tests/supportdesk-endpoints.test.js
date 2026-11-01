@@ -143,6 +143,35 @@ test('GET /kb/view without doc param returns 400', async () => {
   assert.strictEqual(await res.text(), 'Missing doc parameter')
 })
 
+test('GET /kb/view with a repeated doc param returns 400', async () => {
+  // Express parses repeated query params as an array: reject it before path.join().
+  const res = await request('/kb/view?doc=a&doc=b', { cookie: state.adminCookie, manual: true })
+  assert.strictEqual(res.status, 400)
+  assert.strictEqual(await res.text(), 'Invalid doc parameter')
+})
+
+test('POST /tickets/:id/comment on an unknown ticket returns 404', async () => {
+  const res = await request('/tickets/99999/comment', {
+    method: 'POST',
+    body: 'content=' + encodeURIComponent('hello'),
+    cookie: state.adminCookie,
+    manual: true
+  })
+  assert.strictEqual(res.status, 404)
+  assert.strictEqual(await res.text(), 'Ticket not found')
+})
+
+test('POST /tickets/:id/comment without content returns 400', async () => {
+  const res = await request('/tickets/1/comment', {
+    method: 'POST',
+    body: '',
+    cookie: state.adminCookie,
+    manual: true
+  })
+  assert.strictEqual(res.status, 400)
+  assert.strictEqual(await res.text(), 'Missing content')
+})
+
 test('GET /kb/view with a valid doc renders the article', async () => {
   const res = await request('/kb/view?doc=password-policy.html', { cookie: state.adminCookie })
   assert.strictEqual(res.status, 200)
