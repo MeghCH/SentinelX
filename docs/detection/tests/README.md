@@ -19,7 +19,7 @@
 
 ## W3-06 : mesure finale des faux positifs
 
-Script [`detection/tests/fp-measure.sh`](../../../detection/tests/fp-measure.sh) : une session de trafic réaliste (`../scripts/traffic.js --duration 600`), puis agrégation des alertes 100100–100161 indexées dans la fenêtre exacte. Verdict `FP_RATE_OK` attendu (cf. rapport de qualification). Rapports JSON horodatés dans `detection/tests/`.
+Script [`detection/tests/fp-measure.sh`](../../../detection/tests/fp-measure.sh) : une session de trafic réaliste (`../scripts/traffic.js --duration 600`), puis agrégation des alertes 100100–100161 indexées dans la fenêtre exacte. La borne de fin `T1` est relevée après le flush de l'indexeur, réglable via `FLUSH_SECONDS` (10 s par défaut) : `FLUSH_SECONDS=20 detection/tests/fp-measure.sh`. Verdict `FP_RATE_OK` attendu (cf. rapport de qualification). Rapports JSON horodatés dans `detection/tests/`.
 
 **Résultat du 2026-10-30 (LXC 149, stack consolidée 6 services, indexer green)** : 1058 requêtes normales / 600 s, 0 login échoué, 0 alerte custom (les 144 alertes natives de la fenêtre sont hors périmètre) → **0 faux positif pour 1058 requêtes**. La version du script utilisée ignorait les `rule.id` (chaînes) ; corrigée et **relancée le 2026-10-31** : 1043 requêtes / 600 s, 0 alerte custom, 0 native, ingestion vérifiée (0 événement perdu) et contrôle positif `100121` en 1,5 s → **0 faux positif confirmé** ([`fp-report-20261031T134550.json`](../../../detection/tests/fp-report-20261031T134550.json), §9 et §11 du rapport de qualification).
 

@@ -9,13 +9,14 @@
 # Variables optionnelles :
 #   MANAGER=sentinelx-wazuh.manager-1  INDEXER_URL=https://localhost:9200
 #   INDEXER_USER=admin  INDEXER_PASS=SecretPassword
+#   (INDEXER_PASS falls back to WAZUH_INDEXER_PASSWORD, from .env/.env.example)
 
 set -uo pipefail
 
 MANAGER="${MANAGER:-sentinelx-wazuh.manager-1}"
 INDEXER_URL="${INDEXER_URL:-https://localhost:9200}"
 INDEXER_USER="${INDEXER_USER:-admin}"
-INDEXER_PASS="${INDEXER_PASS:-SecretPassword}"
+INDEXER_PASS="${INDEXER_PASS:-${WAZUH_INDEXER_PASSWORD:-SecretPassword}}"
 SAMPLE="detection/samples/login_failure.jsonl"
 LOGFILE="detection/logs/app.jsonl"
 ALERTS="/var/ossec/logs/alerts/alerts.json"

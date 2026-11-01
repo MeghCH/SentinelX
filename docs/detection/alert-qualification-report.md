@@ -40,6 +40,12 @@ Conditions de validité (contrat §10) : le script de trafic est **figé et repr
 le lancement de la mesure (`feat/W02-traffic-script`, version du 2026-10-22). Il est versionné
 dans le dépôt (`supportdesk/scripts/traffic.js`) et produit un rapport JSON du trafic généré.
 
+Fenêtre de mesure : depuis W13, la borne de fin `T1` est relevée **après** le délai de flush de
+l'indexeur (`FLUSH_SECONDS`, 10 s par défaut), et non plus juste après le trafic. Les horodatages
+d'alerte Wazuh sont des temps d'analyse (manager) plus le délai d'ingestion : fermer la fenêtre
+avant le flush excluait silencieusement les alertes de la fin du trafic et pouvait sous-estimer
+les faux positifs recherchés.
+
 ---
 
 ## 2. Paramètres de la mesure

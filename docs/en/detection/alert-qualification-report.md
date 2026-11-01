@@ -28,6 +28,8 @@ On a **normal-only** traffic window, every custom alert is a false positive: the
 
 Validity conditions (contract §10): the traffic script is **frozen and reproducible** before the measurement is launched (`feat/W02-traffic-script`, version dated 2026-10-22). It is versioned in the repository (`supportdesk/scripts/traffic.js`) and produces a JSON report of the generated traffic.
 
+Measurement window: since W13, the end bound `T1` is captured **after** the indexer flush delay (`FLUSH_SECONDS`, 10 s by default), no longer right after the traffic run. Wazuh alert timestamps are analysis time (manager) plus ingestion lag: closing the window before the flush silently excluded alerts from the tail of the traffic and could under-report the very false positives being measured.
+
 ---
 
 ## 2. Measurement parameters

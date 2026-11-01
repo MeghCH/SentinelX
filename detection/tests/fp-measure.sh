@@ -18,6 +18,8 @@
 #   DURATION     traffic seconds (default 600 -- CONTRACT.md section 12)
 #   INDEXER_URL  default https://localhost:9200
 #   INDEXER_USER/PASS: compose defaults admin / SecretPassword
+#   FLUSH_SECONDS  wait before closing the window (default 10)
+#   INDEXER_PASS falls back to WAZUH_INDEXER_PASSWORD (from .env/.env.example)
 #
 # Output: detection/tests/fp-report-<ts>.json + stdout verdict.
 # Exit 0 iff there are zero Sentinel X alerts on normal traffic.
@@ -32,7 +34,8 @@ BASE="${BASE:-http://localhost:3000}"
 DURATION="${DURATION:-600}"
 INDEXER_URL="${INDEXER_URL:-https://localhost:9200}"
 INDEXER_USER="${INDEXER_USER:-admin}"
-INDEXER_PASS="${INDEXER_PASS:-SecretPassword}"
+INDEXER_PASS="${INDEXER_PASS:-${WAZUH_INDEXER_PASSWORD:-SecretPassword}}"
+FLUSH_SECONDS="${FLUSH_SECONDS:-10}"
 TRAF_OUT="$REPO_ROOT/supportdesk/traffic-report-fp.json"  # must live under APP_ROOT: in container fallback the repo tree sits under /app, host paths are invisible
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
@@ -85,10 +88,12 @@ except Exception:
     sys.exit(2)
 PYEOF
 [ $? -ne 0 ] && exit 2
-T1="$(date -u +%Y-%m-%dT%H:%M:%SZ)"  # generous close (indexer flush latency)
 
-# 1. Let the indexer flush, then aggregate the window per custom rule id
-sleep 10
+# 1. Let the indexer flush, THEN close the window, then aggregate per custom rule id.
+# Alert timestamps are analysis time (manager) plus ingestion lag, so T1 must be
+# captured after the flush or tail-of-traffic alerts stamped late are excluded.
+sleep "$FLUSH_SECONDS"
+T1="$(date -u +%Y-%m-%dT%H:%M:%SZ)"  # close AFTER the flush: covers traffic + ingestion lag
 
 QUERY='{"size":0,"query":{"bool":{"filter":[{"range":{"timestamp":{"gte":"'"$T0"'","lte":"'"$T1"'"}}}]}},
 "aggs":{"rules":{"terms":{"field":"rule.id","size":100},"aggs":{
@@ -107,6 +112,10 @@ ALL_COUNT=$(curl -sk -u "$INDEXER_USER:$INDEXER_PASS" "$INDEXER_URL/wazuh-alerts
 python3 - "$T0" "$T1" "$DURATION" "$ALL_COUNT" "$TRAF_OUT" "$OUT" "$RESP" <<'PYEOF'
 import json, sys
 t0, t1, dur_s, all_count, traf_path, out_path, resp = sys.argv[1:8]
+try:
+    all_count = int(all_count)
+except (TypeError, ValueError):
+    all_count = 0
 try:
     r = json.loads(resp)
     buckets = r.get("aggregations", {}).get("rules", {}).get("buckets", [])
