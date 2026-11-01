@@ -34,8 +34,8 @@ services:
         condition: service_healthy
     environment:
       - INDEXER_URL="https://wazuh.indexer:9200"
-      - INDEXER_USERNAME=admin
-      - INDEXER_PASSWORD=SecretPassword
+      - INDEXER_USERNAME=${WAZUH_INDEXER_USERNAME:-admin}
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-SecretPassword}
       - FILEBEAT_SSL_VERIFICATION_MODE=full
       - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
       - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
@@ -73,13 +73,15 @@ services:
     healthcheck:
       # An authenticated answer means the security plugin is initialised;
       # yellow is the normal state of a single node, red is unhealthy.
-      test: ["CMD-SHELL", "curl -sk -u admin:SecretPassword https://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      test: ["CMD-SHELL", "curl -sk -u \"$${INDEXER_USERNAME:-admin}:$${INDEXER_PASSWORD:-SecretPassword}\" https://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
       interval: 15s
       timeout: 10s
       retries: 20
       start_period: 180s
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - INDEXER_USERNAME=${WAZUH_INDEXER_USERNAME:-admin}
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-SecretPassword}
     ulimits:
       memlock:
         soft: -1
@@ -104,8 +106,8 @@ services:
     ports:
       - 443:5601
     environment:
-      - INDEXER_USERNAME=admin
-      - INDEXER_PASSWORD=SecretPassword
+      - INDEXER_USERNAME=${WAZUH_INDEXER_USERNAME:-admin}
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-SecretPassword}
       - WAZUH_API_URL=https://wazuh.manager
       - DASHBOARD_USERNAME=kibanaserver
       - DASHBOARD_PASSWORD=kibanaserver
@@ -144,8 +146,8 @@ services:
     entrypoint: ["/bin/bash", "/sentinelx/import-saved-objects.sh"]
     environment:
       - DASHBOARD_URL=https://wazuh.dashboard:5601
-      - DASHBOARD_USER=admin
-      - DASHBOARD_PASSWORD=SecretPassword
+      - DASHBOARD_USER=${WAZUH_DASHBOARD_USER:-admin}
+      - DASHBOARD_PASSWORD=${WAZUH_DASHBOARD_PASSWORD:-SecretPassword}
     volumes:
       - ./dashboards:/sentinelx:ro
     depends_on:
